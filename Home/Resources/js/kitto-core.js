@@ -9,8 +9,8 @@ function AjaxError(m) {
   showMessage({
     title: "Ajax Error",
     msg: m,
-    icon: Ext.Msg.ERROR,
-    buttons: Ext.Msg.OK
+    icon: Ext.MessageBox.ERROR,
+    buttons: Ext.MessageBox.OK
   });
 };
 
@@ -210,10 +210,10 @@ function ajaxDataViewSelection(buttonId, text, obj)
     for (var i = 0; i < fieldNames.length; i++)
     {
       for (var j = 0; j < selNodes.length; j++)
-	  {
+      {
         var fieldValues = selNodes[j].id.split(',');
         ajaxParams[fieldNames[i]] = fieldValues[i];
-	  }
+      }
     }
     return Ext.Ajax.request({
       url: obj.params.methodURL,
@@ -458,8 +458,8 @@ function showKittoLoadMask(amount)
     window.kittoLoadMaskShowCount = 0;
   else
     window.kittoLoadMaskShowCount += amount;
-  if (window.kittoLoadMaskShowCount > 0)
-    Ext.getBody().mask();
+  if ((window.kittoLoadMaskShowCount > 0) && !Ext.getBody().isMasked())
+    Ext.getBody().mask(Kitto.Strings.loadingMsg);
   else
     Ext.getBody().unmask();
 }
@@ -469,23 +469,23 @@ function isMobileBrowser()
   return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 }
 
-// A shortcut for Ext.Msg.show that enforces dialog size.
+// A shortcut for Ext.MessageBox.show that enforces dialog size.
 function showMessage(config)
 {
   config.maxWidth = getMaxMsgWidth();
   config.minWidth = getMinMsgWidth();
-  var messageBox = Ext.Msg.show(config);
-  Ext.Function.defer(
+  var messageBox = Ext.MessageBox.show(config);
+  /*Ext.Function.defer(
     function () {
       messageBox.zIndexManager.bringToFront(messageBox);                
-    }, 250);
+    }, 250);*/
   return messageBox;
 }
 
 function showErrorMessage(config)
 {
-  config.icon = Ext.Msg.ERROR;
-  config.buttons = Ext.Msg.OK;
+  config.icon = Ext.MessageBox.ERROR;
+  config.buttons = Ext.MessageBox.OK;
   return showMessage(config);
 }
 
@@ -508,4 +508,17 @@ function linesToPixels(lines)
 function finishedLoadingHomeView()
 {
   Ext.get("loading").remove();
+}
+
+var
+  kAnimationOrigin;
+ 
+function setAnimationOrigin(comp)
+{
+  kAnimationOrigin = comp;
+}
+
+function getAnimationOrigin()
+{
+  return kAnimationOrigin;
 }

@@ -91,6 +91,7 @@ type
     procedure UpdateSessionInfo;
     procedure SessionListUpdateHandler(AEngine: TKWebEngine;
       ASession: TKWebSession);
+    procedure RecreateServer;
     const
       TAB_LOG = 0;
       TAB_SESSIONS = 1;
@@ -182,7 +183,6 @@ begin
   begin
     DoLog(_('Stopping listener...'));
     FServer.Active := False;
-    FApplication.ReloadConfig;
     DoLog(_('Listener stopped'));
     HomeURLLabel.Visible := False;
     while IsStarted do
@@ -273,7 +273,7 @@ var
   LSession: TKWebSession;
 begin
   SessionListView.Clear;
-  if FServer.Active then
+  if IsStarted then
   begin
     LSessions := FServer.Engine.GetSessions;
 
@@ -306,7 +306,7 @@ end;
 
 function TKMainForm.IsStarted: Boolean;
 begin
-  Result := FServer.Active;
+  Result := Assigned(FServer) and FServer.Active;
 end;
 
 procedure TKMainForm.FormClose(Sender: TObject; var Action: TCloseAction);
@@ -320,15 +320,18 @@ begin
 end;
 
 procedure TKMainForm.FormCreate(Sender: TObject);
+var
+  LDefaultConfig: string;
 begin
 {$IF RTLVersion >= 23.0}
   TStyleManager.TrySetStyle('Aqua Light Slate');
 {$IFEND}
+  //Read command line param -config
+  LDefaultConfig := ChangeFileExt(GetCmdLineParamValue('Config', TKConfig.BaseConfigFileName),'.yaml');
+  if LDefaultConfig <> '' then
+    TKConfig.BaseConfigFileName := LDefaultConfig;
 
-  FServer := TKWebServer.Create(nil);
-  FServer.Engine.OnSessionStart := SessionListUpdateHandler;
-  FServer.Engine.OnSessionEnd := SessionListUpdateHandler;
-  FApplication := FServer.Engine.AddRoute(TKWebApplication.Create) as TKWebApplication;
+  RecreateServer;
 
   FLogEndPoint := TKMainFormLogEndpoint.Create;
   FLogEndPoint.OnLog := DoLog;
@@ -392,15 +395,14 @@ end;
 
 procedure TKMainForm.FillConfigFileNameCombo;
 var
-  LDefaultConfig: string;
   LConfigIndex: Integer;
+  LConfigFileName: string;
 begin
   FindAllFiles('yaml', TKConfig.GetMetadataPath, ConfigFileNameComboBox.Items, False, False);
   if ConfigFileNameComboBox.Items.Count > 0 then
   begin
-    //Read command line param -config
-    LDefaultConfig := ChangeFileExt(GetCmdLineParamValue('Config', TKConfig.BaseConfigFileName),'.yaml');
-    LConfigIndex := ConfigFileNameComboBox.Items.IndexOf(LDefaultConfig);
+    LConfigFileName := TKConfig.BaseConfigFileName;
+    LConfigIndex := ConfigFileNameComboBox.Items.IndexOf(LConfigFileName);
     if LConfigIndex <> -1 then
     begin
       ConfigFileNameComboBox.ItemIndex := LConfigIndex;
@@ -416,9 +418,7 @@ end;
 
 procedure TKMainForm.StartActionExecute(Sender: TObject);
 begin
-  Assert(Assigned(FServer));
-  Assert(Assigned(FApplication));
-
+  RecreateServer;
   FServer.Active := True;
   SessionCountLabel.Visible := True;
   DoLog(_('Listener started'));
@@ -429,6 +429,17 @@ end;
 procedure TKMainForm.StartActionUpdate(Sender: TObject);
 begin
   (Sender as TAction).Enabled := HasConfigFileName and not IsStarted;
+end;
+
+procedure TKMainForm.RecreateServer;
+begin
+  FreeAndNil(FServer);
+
+  FServer := TKWebServer.Create(nil);
+  FServer.Engine.OnSessionStart := SessionListUpdateHandler;
+  FServer.Engine.OnSessionEnd := SessionListUpdateHandler;
+  FApplication := FServer.Engine.AddRoute(TKWebApplication.Create) as TKWebApplication;
+  FServer.Setup(FApplication.Config);
 end;
 
 { TKMainFormLogEndpoint }

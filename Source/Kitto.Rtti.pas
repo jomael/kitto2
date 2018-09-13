@@ -14,25 +14,49 @@
    limitations under the License.
 -------------------------------------------------------------------------------}
 
-unit Kitto.Ext.Viewport;
+unit Kitto.Rtti;
 
 {$I Kitto.Defines.inc}
 
 interface
 
 uses
-  Kitto.Ext.Base, Kitto.Ext.Controller;
+  SysUtils
+  , Kitto.JS.Types
+  ;
 
-type
-  TKExtViewportController = class(TKExtViewportControllerBase)
-  end;
+function GetMethodName(const AMethod: TJSProcedure): string;
 
 implementation
 
-initialization
-  TKExtControllerRegistry.Instance.RegisterClass('Viewport', TKExtViewportController);
+uses
+  Rtti
+  ;
 
-finalization
-  TKExtControllerRegistry.Instance.UnregisterClass('Viewport');
+function GetMethodName(const AMethod: TJSProcedure): string;
+var
+  LInfo: TRttiType;
+  LMethod: TMethod;
+  LRttiMethod: TRttiMethod;
+  LObject: TObject;
+begin
+  Result := '';
+
+  LMethod := TMethod(AMethod);
+  LObject := LMethod.Data;
+
+  LInfo := TRttiContext.Create.GetType(LObject.ClassType);
+  for LRttiMethod in LInfo.GetMethods do
+  begin
+    if LRttiMethod.CodeAddress = LMethod.Code then
+    begin
+      Result := LRttiMethod.Name;
+      Break;
+    end;
+  end;
+
+  if Result = '' then
+    raise Exception.Create('Method not found')
+end;
 
 end.

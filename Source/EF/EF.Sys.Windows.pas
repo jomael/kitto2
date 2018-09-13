@@ -603,15 +603,36 @@ procedure CopyAllFilesAndFoldersExcept(
 procedure CheckFileInUse(const AFileName: string);
 
 /// <summary>
-///   Returns True if two strings refer to the same directory. Both must exist
-///   for this function to work.
+///  Returns True if two strings refer to the same directory. Both must exist
+///  for this function to work.
 /// </summary>
 function SameDirectory(const ADirectory1, ADirectory2: string): Boolean;
 
 /// <summary>
-///   Returns the number of bytes in the current process' working set.
+///  Returns the number of bytes in the current process' working set.
 /// </summary>
 function GetCurrentProcessMemory: Cardinal;
+
+/// <summary>
+///  Loads a resource of the specified name and type from the specified instance
+///  handle, and returns the raw bytes. Returns nil if the resource is not found
+///  or is empty.
+/// </summary>
+function GetResourceBytes(const AInstance: THandle; const AResourceName: string; const AResourceType: PChar): TBytes; inline;
+
+/// <summary>
+///  Loads a resource of the specified name and type RCDATA from the specified instance
+///  handle, and returns the raw bytes. Returns nil if the resource is not found
+///  or is empty.
+/// </summary>
+function GetRCDATAResourceBytes(const AInstance: THandle; const AResourceName: string): TBytes;
+
+/// <summary>
+///  Returns information about version numbers (Major, Minor, Release, Build
+///  registered into FileName (usually application file)
+/// </summary>
+procedure GetVerInfo( const FileName : string;
+  var MajorVersion, MinorVersion, Release, Build : integer);
 
 implementation
 
@@ -1578,6 +1599,75 @@ procedure ShrinkProcessWorkingSet(const AMaxMemory: Cardinal);
 begin
   if GetCurrentProcessMemory > AMaxMemory then
     EmptyWorkingSet(GetCurrentProcess);
+end;
+
+function GetResourceBytes(const AInstance: THandle; const AResourceName: string; const AResourceType: PChar): TBytes;
+var
+  LHandle: THandle;
+  LResourceStream: TResourceStream;
+  LBytesStream: TBytesStream;
+begin
+  Result := nil;
+
+  LHandle := FindResource(AInstance, PChar(AResourceName), AResourceType);
+  if LHandle <> 0 then
+  begin
+    LResourceStream := TResourceStream.Create(AInstance, AResourceName, AResourceType);
+    try
+      LBytesStream := TBytesStream.Create;
+      try
+        LBytesStream.CopyFrom(LResourceStream, LResourceStream.Size);
+        Result := Copy(LBytesStream.Bytes, 0, LBytesStream.Size);
+      finally
+        FreeAndNil(LBytesStream);
+      end;
+    finally
+      FreeAndNil(LResourceStream);
+    end;
+  end;
+end;
+
+function GetRCDATAResourceBytes(const AInstance: THandle; const AResourceName: string): TBytes;
+begin
+  Result := GetResourceBytes(AInstance, AResourceName, RT_RCDATA);
+end;
+
+procedure GetVerInfo( const FileName : string;
+  var MajorVersion, MinorVersion, Release, Build : integer);
+type
+  cArray   = Array[1..$3FFF] of Char;
+  TLangInf = Array[1..2]     of Word;      // Language and charset identifiers
+
+var
+  InfoSize, Wnd: DWORD;
+  VerBuf: Pointer;
+  FI: PVSFixedFileInfo;
+  VerSize: DWORD;
+begin
+  MajorVersion := 0;
+  MinorVersion := 0;
+  Release := 0;
+  Build := 0;
+
+  InfoSize := GetFileVersionInfoSize(PChar(FileName), Wnd);
+  if InfoSize > 0 then
+  begin
+    GetMem(VerBuf, InfoSize);
+    try
+      if GetFileVersionInfo(PChar(FileName), Wnd, InfoSize, VerBuf) then
+      begin
+        if VerQueryValue(VerBuf, '\', Pointer(FI), VerSize) then
+        begin
+          MajorVersion := HIWORD(FI.dwFileVersionMS);
+          MinorVersion := LOWORD(FI.dwFileVersionMS);
+          Release := HIWORD(FI.dwFileVersionLS);
+          Build := LOWORD(FI.dwFileVersionLS);
+        end;
+      end;
+    finally
+      FreeMem(VerBuf);
+    end;
+  end;
 end;
 
 initialization

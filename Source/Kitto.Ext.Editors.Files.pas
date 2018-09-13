@@ -57,18 +57,18 @@ type
   TKExtFormFileEditor = class(TExtFormFieldContainer, IKExtEditItem, IKExtEditor)
   strict private
     FDescriptionField: TExtFormTextField;
-    FWindow: TKExtModalWindow;
     FDownloadButton: TKExtButton;
     FIsReadOnly: Boolean;
     FClearButton: TKExtButton;
     FTotalCharWidth: Integer;
     FPictureView: TExtPanel;
     FUploadButton: TKExtButton;
+    FUploadFileDialog: TExtPanel;
+    const EMPTY_DESCRIPTION = 'Empty';
     function GetContentDescription: string;
     procedure UpdateGUI(const AUpdatePicture: Boolean);
-    procedure PictureViewAfterRender(This: TExtComponent);
-    const EMPTY_DESCRIPTION = 'Empty';
-  private
+    procedure LoadPicture;
+  private // friends
     FAdditionalWidth: Integer;
   strict protected
     FFieldName: string;
@@ -160,6 +160,7 @@ uses
   , EF.JSON
   , EF.Localization
   , EF.Sys
+  , Kitto.Ext.UploadFileDialog
   , Kitto.Ext.Utils
   , Kitto.Web.Request
   , Kitto.Web.Response
@@ -399,15 +400,15 @@ begin
   Result := FRecordField.ViewField.IsPicture;
 end;
 
-procedure TKExtFormFileEditor.RefreshValue;
-begin
-end;
-
-procedure TKExtFormFileEditor.PictureViewAfterRender(This: TExtComponent);
+procedure TKExtFormFileEditor.LoadPicture;
 begin
   Assert(Assigned(FPictureView));
 
   TKWebResponse.Current.Items.ExecuteJSCode(FPictureView.JSName + '.getLoader().load()');
+end;
+
+procedure TKExtFormFileEditor.RefreshValue;
+begin
 end;
 
 procedure TKExtFormFileEditor.CreateGUI(const AViewField: TKViewField);
@@ -425,13 +426,17 @@ begin
 
   if LIsPicture then
   begin
-    LPanel.Layout := lyColumn;
+    LPanel.Layout := 'column';
+    //LPanel.Frame := True;
     FPictureView := TExtPanel.CreateAndAddToArray(LPanel.Items);
-    //FPictureView.Frame := True;
+    FPictureView.Frame := True;
     FPictureView.Border := False;
     FPictureView.Loader.SetConfigItem('url', GetMethodURL(GetImageMarkup));
-    FPictureView.AfterRender := PictureViewAfterRender;
-
+    FPictureView.AddAfterRenderHandler(
+      procedure (const AThis: TExtComponent)
+      begin
+        LoadPicture;
+      end);
     LToolbar := TKExtToolbar.CreateAndAddToArray(LPanel.Items);
     // Version below puts the toolbar at the bottom (in which case we should adjust the height as well)
     //LToolbar := TKExtToolbar.Create;
@@ -439,7 +444,7 @@ begin
   end
   else
   begin
-    LPanel.Layout := lyHbox;
+    LPanel.Layout := 'hbox';
     FDescriptionField := TExtFormTextField.CreateAndAddToArray(LPanel.Items);
     FDescriptionField.ReadOnly := True;
     FDescriptionField.Cls := 'x-form-readonly';
@@ -539,7 +544,7 @@ begin
     if Assigned(FDescriptionField) then
       FDescriptionField.Value := GetContentDescription;
     if AUpdatePicture and Assigned(FPictureView) then
-      PictureViewAfterRender(FPictureView);
+      LoadPicture;
     FDownloadButton.SetDisabled(LIsEmpty);
     FClearButton.SetDisabled(LIsEmpty or FIsReadOnly);
     FUploadButton.SetDisabled(FIsReadOnly);
@@ -562,63 +567,11 @@ begin
 end;
 
 procedure TKExtFormFileEditor.ShowUploadFileDialog;
-var
-  LUploadButton: TKExtButton;
-  LFormPanel: TExtFormFormPanel;
-  LSubmitAction: TExtFormActionSubmit;
-  LUploadFormField: TKExtFormFileUploadField;
-  LToolbar: TKExtToolbar;
-  LCancelButton: TKExtButton;
 begin
-  if Assigned(FWindow) then
-    FWindow.Delete;
-  FreeAndNil(FWindow);
-  FWindow := TKExtModalWindow.Create(Self);
-  FWindow.Width := 550;
-  FWindow.Height := 150;
-  FWindow.Title := _('File upload');
-
-  LFormPanel := TExtFormFormPanel.CreateAndAddToArray(FWindow.Items);
-  LFormPanel.Region := rgCenter;
-  LFormPanel.Frame := True;
-  LFormPanel.FileUpload := True;
-  LFormPanel.LabelAlign := laRight;
-  LFormPanel.LabelWidth := 50;
-  LFormPanel.PaddingString := '15px 15px 15px 5px'; // top right bottom left
-
-  LUploadFormField := TKExtFormFileUploadField.CreateInlineAndAddToArray(LFormPanel.Items);
-  LUploadFormField.FieldLabel := _(FRecordField.ViewField.DisplayLabel);
-  LUploadFormField.EmptyText := _('Select a file to upload');
-  LUploadFormField.AllowBlank := False;
-  LUploadFormField.Anchor := '0 5 0 0';
-  LToolbar := TKExtToolbar.Create(Self);
-  TExtToolbarFill.CreateInlineAndAddToArray(LToolbar.Items);
-  FWindow.Fbar := LToolbar;
-
-  LUploadButton := TKExtButton.CreateInlineAndAddToArray(LToolbar.Items);
-  LUploadButton.Text := _('Upload');
-  LUploadButton.SetIconAndScale('Upload', IfThen(TKWebRequest.Current.IsMobileBrowser, 'medium', 'small'));
-
-  LCancelButton := TKExtButton.CreateInlineAndAddToArray(LToolbar.Items);
-  LCancelButton.Text := _('Cancel');
-  LCancelButton.SetIconAndScale('Cancel', IfThen(TKWebRequest.Current.IsMobileBrowser, 'medium', 'small'));
-  LCancelButton.Handler := GenerateAnonymousFunction(FWindow.Close);
-
-  LSubmitAction := TExtFormActionSubmit.CreateInline(FWindow);
-  LSubmitAction.Url := GetMethodURL(Upload);
-  LSubmitAction.WaitMsg := _('File upload in progress...');
-  LSubmitAction.WaitTitle := _('Please wait...');
-  //LSubmitAction.Success := Ajax(PostUpload);
-  LSubmitAction.Success := TKWebResponse.Current.Items.AjaxCallMethod(Self).SetMethod(PostUpload).AsFunction;
-  { TODO : find a way to substitute action.result.msg }
-  LSubmitAction.Failure := GenerateAnonymousFunction('form, action', ExtMessageBox.Alert(_('File upload error'), 'action.result.msg'));
-
-  LUploadButton.Handler := GenerateAnonymousFunction(Format(
-    'if (%s.isValid()) %s.submit({%s});',
-    [LFormPanel.JSName,
-     LFormPanel.JSName,
-     LSubmitAction.JSConfig.AsFormattedText]));
-  FWindow.Show;
+  FreeAndNil(FUploadFileDialog);
+  FUploadFileDialog := Kitto.Ext.UploadFileDialog.ShowUploadFileDialog(Self,
+    _(FRecordField.ViewField.DisplayLabel), GetMethodURL(Upload),
+    TKWebResponse.Current.Items.AjaxCallMethod(Self).SetMethod(PostUpload).AsFunction);
 end;
 
 procedure TKExtFormFileEditor.StartDownload;
@@ -721,7 +674,7 @@ end;
 
 procedure TKExtFormFileEditor.PostUpload;
 begin
-  FWindow.Close;
+  FUploadFileDialog.Close;
   UpdateGUI(True);
 end;
 

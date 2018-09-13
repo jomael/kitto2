@@ -52,7 +52,7 @@ type
     function IsClientStoreAutoLoadEnabled: Boolean; override;
     function GetRecordPageFilter: string; override;
     function IsActionSupported(const AActionName: string): Boolean; override;
-    procedure SetNewRecordDefaultValues(const ANode: TEFNode); override;
+    procedure SetNewRecordDefaultValues(const AValues: TEFTree); override;
   //published
     procedure GetCalendarRecords;
     procedure CalendarDayClick(This: TExtCalendarPanel; Dt: TDateTime; Allday: Boolean; El: TExtElement);
@@ -78,7 +78,7 @@ uses
   , Kitto.Web.Application
   , Kitto.Web.Response
   , Kitto.Ext.Utils
-  , Kitto.Ext.Controller
+  , Kitto.JS.Controller
   ;
 
 { TKExtCalendarPanel }
@@ -93,7 +93,7 @@ begin
   Assert(ClientStore <> nil);
 
   FCalendarPanel := TExtCalendarPanel.CreateAndAddToArray(Items);
-  FCalendarPanel.Region := rgCenter;
+  FCalendarPanel.Region := 'center';
   FCalendarPanel.Border := False;
 
   FCalendarPanel.DayText := _('Day');
@@ -193,7 +193,7 @@ begin
   Result := ViewTable.FieldByAliasedName('EndDate').DBNameOrExpression;
 end;
 
-procedure TKExtCalendarPanel.SetNewRecordDefaultValues(const ANode: TEFNode);
+procedure TKExtCalendarPanel.SetNewRecordDefaultValues(const AValues: TEFTree);
 var
   LDay: Integer;
   LMonth: Integer;
@@ -203,7 +203,7 @@ begin
   LMonth := ParamAsInteger('m');
   LYear := ParamAsInteger('y');
 
-  ANode.GetNode('Sys/DefaultValues/' + GetDateFieldNameForNewRecords, True).AsDateTime :=  EncodeDate(LYear, LMonth, LDay);
+  AValues.GetNode('Sys/DefaultValues/' + GetDateFieldNameForNewRecords, True).AsDateTime :=  EncodeDate(LYear, LMonth, LDay);
 end;
 
 procedure TKExtCalendarPanel.GetCalendarRecords;
@@ -331,9 +331,9 @@ begin
 end;
 
 initialization
-  TKExtControllerRegistry.Instance.RegisterClass('CalendarPanel', TKExtCalendarPanel);
+  TJSControllerRegistry.Instance.RegisterClass('CalendarPanel', TKExtCalendarPanel);
 
 finalization
-  TKExtControllerRegistry.Instance.UnregisterClass('CalendarPanel');
+  TJSControllerRegistry.Instance.UnregisterClass('CalendarPanel');
 
 end.

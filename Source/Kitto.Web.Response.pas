@@ -216,6 +216,7 @@ type
   TJSExpressionResponseItem = class(TJSResponseItem)
   private
     FExpression: TJSExpression;
+    FOwnsExpression: Boolean;
     // Used by GetAsFunction.
     FFunctionArgs: string;
     FFunctionReturn: string;
@@ -336,6 +337,7 @@ implementation
 
 uses
   DateUtils
+  , Kitto.Rtti
   , Kitto.JS
   , Kitto.Web.Application
   ;
@@ -1292,7 +1294,8 @@ end;
 
 destructor TJSExpressionResponseItem.Destroy;
 begin
-  FreeAndNil(FExpression);
+  if FOwnsExpression then
+    FreeAndNil(FExpression);
   inherited;
 end;
 
@@ -1300,6 +1303,7 @@ function TJSExpressionResponseItem.GetAsExpression: TJSExpression;
 begin
   if not Assigned(FExpression) then
   begin
+    FOwnsExpression := Sender = nil;
     FExpression := TJSExpression.Create(Sender);
     FExpression.Text := GetFormattedCode;
   end;
@@ -1310,6 +1314,7 @@ function TJSExpressionResponseItem.GetAsFunction: TJSFunction;
 begin
   if not Assigned(FExpression) then
   begin
+    FOwnsExpression := Sender = nil;
     FExpression := TJSFunction.Create(Sender);
     FExpression.Text := TJS.WrapInAnonymousFunction(FFunctionArgs, GetFormattedCode, FFunctionReturn);
   end;
@@ -1334,6 +1339,7 @@ begin
   if not IsExpressionExtracted then
   begin
     Assert(CallName <> '');
+    Assert(Assigned(Sender));
 
     AFormatter.SkipLine.Indent;
     AFormatter.AddIndented('Ext.Ajax.request(').SkipLine.Indent.AddIndent.OpenObject;

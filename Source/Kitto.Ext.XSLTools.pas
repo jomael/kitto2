@@ -26,12 +26,12 @@ uses
   , Classes
   , DB
   , EF.Tree
-  , Kitto.Ext.Controller
+  , Kitto.JS.Controller
   , Kitto.Ext.DataTool
   , Kitto.Ext.Base
   , Kitto.Ext.Tools
   , Kitto.Metadata.DataView
-  , Kitto.Ext.StandardControllers
+  , Kitto.Ext.Files
   ;
 
 type
@@ -173,7 +173,7 @@ begin
     //Expand macros contained into xsl file like:
     // %FILENAME_TO_URL(%APP_PATH%ReportTemplates/logo.jpg)%
     // or %DATE% or %TIME%
-    LXSLContent := TEFMacroExpansionEngine.Instance.Expand(LXSLContent);
+    TEFMacroExpansionEngine.Instance.Expand(LXSLContent);
 
     //Transform XSL + XML to HTML via MSXML
     LHTMLText := TransformXMLText(LXMLContent, LXSLContent);
@@ -189,9 +189,9 @@ begin
 end;
 
 initialization
-  TKExtControllerRegistry.Instance.RegisterClass('XSLTool', TXSLToolController);
+  TJSControllerRegistry.Instance.RegisterClass('XSLTool', TXSLToolController);
 
 finalization
-  TKExtControllerRegistry.Instance.UnregisterClass('XSLTool');
+  TJSControllerRegistry.Instance.UnregisterClass('XSLTool');
 
 end.

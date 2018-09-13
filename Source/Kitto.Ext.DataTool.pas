@@ -19,9 +19,12 @@ unit Kitto.Ext.DataTool;
 interface
 
 uses
-  SysUtils,
-  Kitto.Metadata.DataView,
-  Kitto.Ext.Base, Kitto.Ext.Controller;
+  SysUtils
+  , Kitto.Metadata.DataView
+  , Kitto.JS.Controller
+  , Kitto.Ext.Base
+  , Kitto.Ext.Panel
+  ;
 
 { TODO : refactor these two classes to keep duplicated code to a minimum }
 type
@@ -46,7 +49,7 @@ type
     function ExpandServerRecordValues(const AString: string): string;
   end;
 
-  TKExtDataWindowToolController = class(TKExtWindowToolController)
+  TKExtDataPanelToolController = class(TKExtPanelToolController)
   strict private
     FSelectedRecords: TArray<TKViewTableRecord>;
     function GetServerRecord: TKViewTableRecord;
@@ -162,7 +165,7 @@ begin
   if (LRecord = nil) and (ServerStore <> nil) and (ServerStore.RecordCount > 0) then
     LRecord := ServerStore.Records[0];
   if LRecord <> nil then
-    Result := LRecord.ExpandExpression(Result);
+    LRecord.ExpandExpression(Result);
 end;
 
 procedure TKExtDataToolController.ExecuteTool;
@@ -195,9 +198,9 @@ begin
     ServerRecord.Refresh;
 end;
 
-{ TKExtDataWindowToolController }
+{ TKExtDataPanelToolController }
 
-procedure TKExtDataWindowToolController.AfterExecuteTool;
+procedure TKExtDataPanelToolController.AfterExecuteTool;
 var
   LAutoRefresh: string;
 begin
@@ -207,7 +210,7 @@ begin
     RefreshData(SameText(LAutoRefresh, 'All'));
 end;
 
-procedure TKExtDataWindowToolController.ExecuteInTransaction(const AProc: TProc);
+procedure TKExtDataPanelToolController.ExecuteInTransaction(const AProc: TProc);
 var
   LDBConnection: TEFDBConnection;
 begin
@@ -228,7 +231,7 @@ begin
   end;
 end;
 
-procedure TKExtDataWindowToolController.StoreSelectedRecords;
+procedure TKExtDataPanelToolController.StoreSelectedRecords;
 var
   LKey: TEFNode;
   LRecordCount: Integer;
@@ -248,7 +251,7 @@ begin
   end;
 end;
 
-procedure TKExtDataWindowToolController.DoDisplay;
+procedure TKExtDataPanelToolController.DoDisplay;
 begin
   inherited;
   StoreSelectedRecords;
@@ -256,22 +259,22 @@ begin
     ServerRecord.LoadDetailStores;
 end;
 
-function TKExtDataWindowToolController.GetServerRecord: TKViewTableRecord;
+function TKExtDataPanelToolController.GetServerRecord: TKViewTableRecord;
 begin
   Result := Config.GetObject('Sys/Record') as TKViewTableRecord;
 end;
 
-function TKExtDataWindowToolController.GetServerStore: TKViewTableStore;
+function TKExtDataPanelToolController.GetServerStore: TKViewTableStore;
 begin
   Result := Config.GetObject('Sys/ServerStore') as TKViewTableStore;
 end;
 
-function TKExtDataWindowToolController.GetViewTable: TKViewTable;
+function TKExtDataPanelToolController.GetViewTable: TKViewTable;
 begin
   Result := Config.GetObject('Sys/ViewTable') as TKViewTable;
 end;
 
-procedure TKExtDataWindowToolController.RefreshData(const AAllRecords: Boolean);
+procedure TKExtDataPanelToolController.RefreshData(const AAllRecords: Boolean);
 begin
   if AAllRecords then
     NotifyObservers('RefreshAllRecords')
@@ -323,9 +326,9 @@ begin
 end;
 
 initialization
-  TKExtControllerRegistry.Instance.RegisterClass('ExecuteCmdTool', TKExtDataCmdToolController);
+  TJSControllerRegistry.Instance.RegisterClass('ExecuteCmdTool', TKExtDataCmdToolController);
 
 finalization
-  TKExtControllerRegistry.Instance.UnregisterClass('ExecuteCmdTool');
+  TJSControllerRegistry.Instance.UnregisterClass('ExecuteCmdTool');
 
 end.

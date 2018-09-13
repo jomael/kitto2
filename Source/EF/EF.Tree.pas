@@ -834,8 +834,9 @@ type
 
   TEFTreeClass = class of TEFTree;
 
-  /// <summary>A tree that stores a file name (or other logical
-  /// identifier).</summary>
+  /// <summary>
+  ///  A tree that stores a file name (or other logical identifier).
+  /// </summary>
   TEFPersistentTree = class(TEFTree)
   strict private
     FPersistentName: string;
@@ -852,7 +853,9 @@ type
 
     property IsPersistent: Boolean read GetIsPersistent;
 
-    /// <summary>Returns the full path name of the persistent file.</summary>
+    /// <summary>
+    ///  Returns the full path name of the persistent file.
+    /// </summary>
     property PersistentFileName: string read GetPersistentFileName;
   end;
 
@@ -1288,9 +1291,9 @@ type
     FTree: TEFTree;
     FPrefix: string;
   strict protected
-    function ExpandTreeMacros(const AString: string; const ATree: TEFTree): string;
+    procedure ExpandTreeMacros(var AString: string; const ATree: TEFTree);
     property Tree: TEFTree read FTree;
-    function InternalExpand(const AString: string): string; override;
+    procedure InternalExpand(var AString: string); override;
   public
     constructor Create(const ATree: TEFTree; const ANameSpace: string); reintroduce;
   end;
@@ -1584,7 +1587,8 @@ end;
 
 function TEFNode.GetAsExpandedString: string;
 begin
-  Result := TEFMacroExpansionEngine.Instance.Expand(AsString);
+  Result := AsString;
+  TEFMacroExpansionEngine.Instance.Expand(Result);
 end;
 
 function TEFNode.GetAsFloat: Double;
@@ -2535,7 +2539,8 @@ end;
 
 function TEFTree.GetExpandedString(const APath, ADefaultValue: string): string;
 begin
-  Result := TEFMacroExpansionEngine.Instance.Expand(GetString(APath, ADefaultValue));
+  Result := GetString(APath, ADefaultValue);
+  TEFMacroExpansionEngine.Instance.Expand(Result);
 end;
 
 function TEFTree.GetFloat(const APath: string;
@@ -2826,15 +2831,15 @@ begin
     FPrefix := '';
 end;
 
-function TEFTreeMacroExpander.InternalExpand(const AString: string): string;
+procedure TEFTreeMacroExpander.InternalExpand(var AString: string);
 begin
-  Result := inherited InternalExpand(AString);
+  inherited InternalExpand(AString);
 
   if Assigned(FTree) then
-    Result := ExpandTreeMacros(Result, FTree);
+    ExpandTreeMacros(AString, FTree);
 end;
 
-function TEFTreeMacroExpander.ExpandTreeMacros(const AString: string; const ATree: TEFTree): string;
+procedure TEFTreeMacroExpander.ExpandTreeMacros(var AString: string; const ATree: TEFTree);
 var
   LIndex: Integer;
   LStart: Integer;
@@ -2846,26 +2851,25 @@ var
 begin
   Assert(Assigned(ATree));
 
-  Result := AString;
   LIndex := 1;
   repeat
-    LStart := PosEx('%' + FPrefix, Result, LIndex);
+    LStart := PosEx('%' + FPrefix, AString, LIndex);
     if LStart = 0 then
       Exit;
     LPathStart := LStart + 1 + Length(FPrefix);
-    LEnd := PosEx('%', Result, LStart + 1);
+    LEnd := PosEx('%', AString, LStart + 1);
     if LEnd = 0 then
       Exit;
-    LNodePath := Copy(Result, LPathStart, LEnd - LPathStart);
+    LNodePath := Copy(AString, LPathStart, LEnd - LPathStart);
     LNode := ATree.FindNode(StripPrefixAndSuffix(LNodePath, '%', '%'));
     if Assigned(LNode) then
     begin
       LNodeValue := LNode.AsExpandedString;
-      Delete(Result, LStart, LEnd - LStart + 1);
-      Insert(LNodeValue, Result, LStart);
+      Delete(AString, LStart, LEnd - LStart + 1);
+      Insert(LNodeValue, AString, LStart);
     end;
     LIndex := LEnd + 1;
-  until LIndex > Length(Result);
+  until LIndex > Length(AString);
 end;
 
 { TEFDataType }
@@ -3213,7 +3217,10 @@ end;
 
 function TEFDataType.ValueToFloat(const AValue: Variant): Double;
 begin
-  Result := EFVarToFloat(AValue);
+  if VarIsNull(AValue) or VarIsEmpty(AValue) then
+    Result := 0
+  else
+    Result := EFVarToFloat(AValue);
 end;
 
 function TEFDataType.ValueToInteger(const AValue: Variant): Integer;
@@ -3221,7 +3228,9 @@ const
   KB = 1024;
   MB = KB * 1024;
 begin
-  if EndsStr('MB', AValue) then
+  if VarIsNull(AValue) or VarIsEmpty(AValue) then
+    Result := 0
+  else if EndsStr('MB', AValue) then
     Result := MB * StrToInt(StripSuffix(AValue, 'MB'))
   else if EndsStr('KB', AValue) then
     Result := KB * StrToInt(StripSuffix(AValue, 'KB'))

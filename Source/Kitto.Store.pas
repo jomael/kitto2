@@ -177,7 +177,7 @@ type
     ///  Replaces occurrencess of {FieldName} tags in the specified string
     ///  with actual field values, formatted as strings.
     /// </summary>
-    function ExpandExpression(const AExpression: string): string; virtual;
+    procedure ExpandExpression(var AExpression: string); virtual;
 
     /// <summary>
     ///  Marks the record as new. An insert instruction will be executed when
@@ -466,6 +466,7 @@ uses
   , FmtBcd
   , Variants
   , StrUtils
+  , EF.Macros
   , EF.StrUtils
   , EF.Localization
   , EF.JSON
@@ -754,14 +755,19 @@ begin
         Records.Clear;
       if not ADBQuery.IsOpen then
         ADBQuery.Open;
-      while not ADBQuery.DataSet.Eof do
-      begin
-        LRecord := Records.AppendAndInitialize;
-        LRecord.ReadFromFields(ADBQuery.DataSet.Fields, AFieldsByIndex);
-        if Assigned(AForEachRecord) then
-          AForEachRecord(LRecord);
-        ADBQuery.DataSet.Next;
-      end;
+      //TEFMacroExpansionEngine.Instance.Disable;
+      //try
+        while not ADBQuery.DataSet.Eof do
+        begin
+          LRecord := Records.AppendAndInitialize;
+          LRecord.ReadFromFields(ADBQuery.DataSet.Fields, AFieldsByIndex);
+          if Assigned(AForEachRecord) then
+            AForEachRecord(LRecord);
+          ADBQuery.DataSet.Next;
+        end;
+      //finally
+      //  TEFMacroExpansionEngine.Instance.Enable;
+      //end;
     end);
 end;
 
@@ -1076,16 +1082,15 @@ begin
   end;
 end;
 
-function TKRecord.ExpandExpression(const AExpression: string): string;
+procedure TKRecord.ExpandExpression(var AExpression: string);
 var
   I: Integer;
   LField: TKField;
 begin
-  Result := AExpression;
   for I := 0 to FieldCount - 1 do
   begin
     LField := Fields[I];
-    Result := ReplaceText(Result, Format('{%s}',[LField.FieldName]), LField.AsString);
+    ReplaceAllCaseSensitive(AExpression, Format('{%s}',[LField.FieldName]), LField.AsString);
   end;
 end;
 

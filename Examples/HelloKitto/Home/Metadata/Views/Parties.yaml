@@ -16,9 +16,6 @@ MainTable:
   Model: Party
 
   Controller:
-    PopupWindow:
-      Width: 700
-      Height: 640
     ToolViews:
       DownloadCSV:
         DisplayLabel: _(Download in CSV)

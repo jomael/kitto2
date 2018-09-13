@@ -7,6 +7,8 @@ Folder: Tables
   View:
     Type: Data
     Controller: List
+      Width: 320
+      Height: 160
     MainTable:
       Model: ACTIVITY_TYPE
 Folder: Customers
@@ -14,8 +16,8 @@ Folder: Customers
   View: Projects
 Folder: Activities
   View: ActivityInput
+  View: ActivitiesByType
   View: ActivityReport
-  View: ActivityTemplate
   #View: ActivityCalendar
 Folder: Statistics
   View: ActivityPieChart
@@ -25,6 +27,6 @@ Folder: Maintenance
     ImageName: user
   View: UserForm
   View:
+    Controller: ChangePassword
+  View:
     Controller: Logout
-    DisplayLabel: Logout
-    ImageName: logout

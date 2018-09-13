@@ -61,7 +61,7 @@ uses
   , Kitto.Metadata.Views
   , Kitto.Web.Application
   , Kitto.Ext.Utils
-  , Kitto.Ext.Controller
+  , Kitto.JS.Controller
   ;
 
 { TKExtTemplateDataPanel }
@@ -84,14 +84,15 @@ var
 begin
   LFileName := TKWebApplication.Current.FindResourcePathName(Config.GetExpandedString('TemplateFileName'));
   if LFileName <> '' then
-    FView.Tpl := ProcessTemplate(TEFMacroExpansionEngine.Instance.Expand(TextFileToString(LFileName, TEncoding.UTF8)))
+    LTemplate := TextFileToString(LFileName, TEncoding.UTF8)
+  else
+    LTemplate := Config.GetString('Template');
+  if LTemplate = '' then
+    FView.Tpl := 'TemplateFileName or Template parameters not specified.'
   else
   begin
-    LTemplate := Config.GetExpandedString('Template');
-    if LTemplate = '' then
-      FView.Tpl := _('TemplateFileName or Template parameters not specified.')
-    else
-      FView.Tpl := ProcessTemplate(LTemplate);
+    TEFMacroExpansionEngine.Instance.Expand(LTemplate);
+    FView.Tpl := ProcessTemplate(LTemplate);
   end;
 end;
 
@@ -128,7 +129,7 @@ begin
   inherited;
   FView := TExtViewView.CreateAndAddToArray(Items);
   FView.EmptyText := _('No data to display.');
-  FView.Region := rgCenter;
+  FView.Region := 'center';
   FView.AutoScroll := True;
 end;
 
@@ -155,9 +156,9 @@ begin
 end;
 
 initialization
-  TKExtControllerRegistry.Instance.RegisterClass('TemplateDataPanel', TKExtTemplateDataPanel);
+  TJSControllerRegistry.Instance.RegisterClass('TemplateDataPanel', TKExtTemplateDataPanel);
 
 finalization
-  TKExtControllerRegistry.Instance.UnregisterClass('TemplateDataPanel');
+  TJSControllerRegistry.Instance.UnregisterClass('TemplateDataPanel');
 
 end.

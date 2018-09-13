@@ -30,15 +30,13 @@ uses
   SysUtils
   , Classes
   , Generics.Collections
-
+  , EF.Classes
   , EF.Tree
   , EF.Intf
   , EF.ObserverIntf
   , EF.Localization
   , EF.Macros
-
   , gnugettext
-
   , Kitto.Config
   , Kitto.Metadata.Views
   , Kitto.JS.Base
@@ -68,6 +66,7 @@ type
     function CreateConfigObject(const AClass: TJSObjectClass; const AAttributeName: string): TJSObject; overload;
     function CreateConfigObjectArray(const AAttributeName: string): TJSObjectArray;
     procedure DoHandleEvent(const AEventName: string); virtual;
+    procedure ItemAdded(const AItems: TJSObjectArray; const AItem: TJSObject); virtual;
   protected
     procedure DependsUpon(const AObject: TJSObject);
   public
@@ -182,8 +181,8 @@ type
     /// </summary>
     procedure Display;
 
-    function GetConfig: TEFNode;
-    property Config: TEFNode read GetConfig;
+    function GetConfig: TEFComponentConfig;
+    property Config: TEFComponentConfig read GetConfig;
 
     function GetView: TKView;
     procedure SetView(const AValue: TKView);
@@ -192,6 +191,11 @@ type
     function GetContainer: IJSContainer;
     procedure SetContainer(const AValue: IJSContainer);
     property Container: IJSContainer read GetContainer write SetContainer;
+
+    function GetDisplayMode: string;
+    procedure SetDisplayMode(const AValue: string);
+    // FullScreen, Floating, Modal
+    property DisplayMode: string read GetDisplayMode write SetDisplayMode;
 
     /// <summary>
     ///  Returns True if the controller should be freed right after
@@ -204,30 +208,23 @@ type
   end;
 
   /// <summary>
-  ///  A container for one or more controllers.
+  ///  Interface implemented by objects that can display status messages; there
+  ///  usually is only one of them in the application.
+  ///  for example put into tab pages.
   /// </summary>
-  IJSControllerContainer = interface(IJSContainer)
-    ['{37EA31CA-544F-4DBD-8C04-D08E30517C99}']
-
-    /// <summary>
-    ///  Called after creating a subcontroller to give this container a chance to
-    ///  initialize some of its configs or settings.
-    /// </summary>
-    procedure InitSubController(const ASubController: IJSController);
-
-    /// <summary>
-    ///  If the container supports the concept of active controller, this
-    ///  method sets the specified controller as the visually active one
-    ///  (such as the active page of a tab panel). Otherwise this method does
-    ///  nothing.
-    /// </summary>
-    procedure SetActiveSubController(const ASubController: IJSController);
-  end;
-
   IJSStatusHost = interface(IEFInterface)
     ['{90737203-A4D9-4C31-AFD7-FDBCF5A7B7D2}']
     function ShowBusy: TJSExpression;
     function ClearStatus: TJSExpression;
+  end;
+
+  /// <summary>
+  ///  Interface implemented by objects that can be activated in some way,
+  ///  for example put into tab pages.
+  /// </summary>
+  IJSActivable = interface(IEFInterface)
+    ['{D6B1AA36-C8D7-4D20-856A-7DCC7DB50423}']
+    procedure Activate;
   end;
 
   TJSObjectArray = class(TJSObject)
@@ -266,13 +263,13 @@ uses
   , EF.StrUtils
   , EF.Sys
   , EF.Logger
+  , Kitto.Rtti
   , Kitto.AccessControl
   , Kitto.Web.Application
-  , Kitto.Web.Server
   , Kitto.Web.Request
   , Kitto.Web.Response
   , Kitto.Web.Session
-  , Kitto.Ext.Controller
+  , Kitto.JS.Controller
   ;
 
 var
@@ -387,6 +384,7 @@ begin
     AItems.Add(AItem);
     if FJSConfig.IsReadOnly then
       TKWebResponse.Current.Items.CallMethod(Self, 'add').AddParam(AItem);
+    ItemAdded(AItems, AItem);
   end;
 end;
 
@@ -544,6 +542,10 @@ begin
   Result := JSName.Contains('.');
 end;
 
+procedure TJSObject.ItemAdded(const AItems: TJSObjectArray; const AItem: TJSObject);
+begin
+end;
+
 function TJSObject.SetConfigItem(const AName, AValue: string): string;
 begin
   FJSConfig.CheckReadOnly(AName);
@@ -624,13 +626,19 @@ begin
 end;
 
 procedure TJSObject.InitDefaults;
+var
+  LIdConfigName: string;
 begin
   inherited;
   { TODO per gli store è storeId; virtuale? Sì, ma poi però ci liberiamo di JSName tout court e teniamo id.
   forse in qualche caso ci dobbiamo tenere le var globali }
 
   if (JSName <> '') and not JSName.Contains('.') then
-    SetConfigItem(GetJSIdConfigName, JSName);
+  begin
+    LIdConfigName := GetJSIdConfigName;
+    if LIdConfigName <> '' then
+      SetConfigItem(GetJSIdConfigName, JSName);
+  end;
 end;
 
 function TJSObject.GetJSIdConfigName: string;
@@ -713,8 +721,15 @@ begin
 end;
 
 function TJSObject.ParamAsObject(const AParamName: string): TJSObject;
+var
+  LObjectName: string;
+  //LObjects: string;
 begin
-  Result := TJSObject(TKWebSession.Current.ObjectSpace.FindChildByJSName(TKWebRequest.Current.GetQueryField(AParamName)));
+  LObjectName := TKWebRequest.Current.GetQueryField(AParamName);
+  Assert(LObjectName <> '');
+  //LObjects := TKWebSession.Current.ObjectSpace.GetChildrenNameTree;
+  Result := TJSObject(TKWebSession.Current.ObjectSpace.FindChildByJSName(LObjectName));
+  Assert(Assigned(Result));
 end;
 
 function TJSObject.ParamAsString(const AParamName: string): string;

@@ -3,9 +3,8 @@ AutoOpen: False
 PageRecordCount:
 RowClassProvider:
 Grouping:
-PopupWindow:
 ToolViews:
-FormController:
+EditController:
 Grid:
 Form:
 AllowViewing: True

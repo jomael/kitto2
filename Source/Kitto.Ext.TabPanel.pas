@@ -21,12 +21,13 @@ unit Kitto.Ext.TabPanel;
 interface
 
 uses
-  Ext.Base
-  , EF.Tree
+  EF.Tree
   , Kitto.Metadata.Views
   , Kitto.JS
+  , Kitto.JS.Controller
+  , Ext.Base
   , Kitto.Ext.Base
-  , Kitto.Ext.Controller
+  , Kitto.Ext.Panel
   ;
 
 type
@@ -36,30 +37,21 @@ type
   ///  A tab panel that knows when its hosted panels are closed. Used
   ///  by the TabPanel controller.
   /// </summary>
-  TKExtTabPanel = class(TExtTabPanel, IKExtPanelHost, IJSControllerContainer)
+  TKExtTabPanel = class(TExtTabPanel)
   private
-    FConfig: TEFTree;
     FView: TKView;
-    FOwner: TKExtTabPanelController;
   strict protected
-    property Config: TEFTree read FConfig;
+    procedure ItemAdded(const AItems: TJSObjectArray; const AItem: TJSObject); override;
     property View: TKView read FView;
     procedure InitDefaults; override;
     function TabsVisible: Boolean; virtual;
-    procedure ApplyTabSize;
-    function GetDefaultTabSize: string; virtual;
-    procedure TabChange(ATabPanel: TExtTabPanel; ANewTab, AOldTab: TExtComponent); virtual;
-    procedure InitSubController(const ASubController: IJSController);
-    procedure SetActiveSubController(const ASubController: IJSController);
+    procedure TabChange(ATabPanel: TExtTabPanel; ANewTab: TExtComponent);
   public
     procedure SetAsControllerContainer; virtual;
     function AsExtContainer: TExtContainer;
-    procedure DisplaySubViewsAndControllers; virtual;
+    procedure DisplaySubViewsAsTabs; virtual;
     destructor Destroy; override;
-    procedure ClosePanel(const APanel: TExtComponent);
     function AsObject: TObject;
-  //published
-    procedure PanelClosed;
   end;
   TKExtTabPanelClass = class of TKExtTabPanel;
 
@@ -71,10 +63,10 @@ type
     procedure DoDisplay; override;
     function GetTabPanelClass: TKExtTabPanelClass; virtual;
     function GetDefaultTabIconsVisible: Boolean; virtual;
+    function GetObjectNamePrefix: string; override;
   protected
     function TabIconsVisible: Boolean;
     procedure InitSubController(const ASubController: IJSController); override;
-    procedure SetActiveSubController(const ASubController: IJSController); override;
   end;
 
 implementation
@@ -85,6 +77,7 @@ uses
   , Kitto.AccessControl
   , Kitto.Types
   , Kitto.Web.Application
+  , Kitto.Web.Response
   , Kitto.Web.Session
   ;
 
@@ -93,16 +86,23 @@ uses
 procedure TKExtTabPanelController.DoDisplay;
 begin
   inherited;
-  FTabPanel.FConfig := Config;
-  FTabPanel.FOwner := Self;
+  Layout := 'fit';
+  FTabPanel.Config.Assign(Config);
   FTabPanel.FView := View;
   FTabPanel.SetAsControllerContainer;
-  FTabPanel.DisplaySubViewsAndControllers;
+  FTabPanel.DisplaySubViewsAsTabs;
+  if FTabPanel.Items.Count > 0 then
+    FTabPanel.SetActiveTab(0);
 end;
 
 function TKExtTabPanelController.GetDefaultTabIconsVisible: Boolean;
 begin
   Result := True;
+end;
+
+function TKExtTabPanelController.GetObjectNamePrefix: string;
+begin
+  Result := 'tab';
 end;
 
 function TKExtTabPanelController.GetTabPanelClass: TKExtTabPanelClass;
@@ -113,7 +113,6 @@ end;
 procedure TKExtTabPanelController.InitDefaults;
 begin
   inherited;
-  Layout := lyFit;
   FTabPanel := GetTabPanelClass.CreateAndAddToArray(Items);
 end;
 
@@ -121,11 +120,6 @@ procedure TKExtTabPanelController.InitSubController(const ASubController: IJSCon
 begin
   inherited;
   ASubController.Config.SetBoolean('Sys/ShowIcon', TabIconsVisible);
-end;
-
-procedure TKExtTabPanelController.SetActiveSubController(const ASubController: IJSController);
-begin
-
 end;
 
 function TKExtTabPanelController.TabIconsVisible: Boolean;
@@ -138,16 +132,19 @@ end;
 procedure TKExtTabPanel.InitDefaults;
 begin
   inherited;
-  Border := False;
-  { TODO : remove this once all controllers set it by themselves. }
-  Defaults.SetConfigItem('autoscroll', True);
-  // Layout problems in tabbed views if DeferredRender=False.
-  DeferredRender := True;
+  OnTabChange := TabChange;
 end;
 
-procedure TKExtTabPanel.InitSubController(const ASubController: IJSController);
+procedure TKExtTabPanel.ItemAdded(const AItems: TJSObjectArray; const AItem: TJSObject);
 begin
   inherited;
+  Assert(Assigned(AItem));
+  Assert(AItems = Items);
+  Assert(AItem is TExtComponent);
+
+  // Don't use the index here, or dependencies will not be correctly determined
+  // and the setActiveTab() call might end up being emitted before the add() call.
+  SetActiveTab(TExtComponent(AItem));
 end;
 
 procedure TKExtTabPanel.SetAsControllerContainer;
@@ -170,13 +167,6 @@ begin
   Result := Self;
 end;
 
-procedure TKExtTabPanel.ClosePanel(const APanel: TExtComponent);
-begin
-  Remove(APanel, True);
-  Items.Remove(APanel);
-  APanel.Free;
-end;
-
 destructor TKExtTabPanel.Destroy;
 begin
   if (TKWebSession.Current <> nil) and Assigned(TKWebSession.Current.ControllerContainer) and (TKWebSession.Current.ControllerContainer.AsJSObject = Self) then
@@ -184,85 +174,17 @@ begin
   inherited;
 end;
 
-procedure TKExtTabPanel.DisplaySubViewsAndControllers;
+procedure TKExtTabPanel.DisplaySubViewsAsTabs;
+begin
+  TJSControllerUtils.DisplaySubControllers(Config, View, TKWebApplication.Current.Config.Views, Self, Self);
+end;
+
+procedure TKExtTabPanel.TabChange(ATabPanel: TExtTabPanel; ANewTab: TExtComponent);
 var
-  LController: IJSController;
-  LViews: TEFNode;
-  I: Integer;
-  LView: TKView;
+  LActivable: IJSActivable;
 begin
-  Assert(Assigned(FOwner));
-  Assert(Assigned(Config));
-  Assert(Assigned(FView));
-
-  if TabsVisible then
-  begin
-    ApplyTabSize;
-    EnableTabScroll := True;
-  end
-  else
-    AddCls('tab-strip-hidden');
-
-  LViews := Config.FindNode('SubViews');
-  if Assigned(LViews) then
-  begin
-    OnTabChange := TabChange;
-    for I := 0 to LViews.ChildCount - 1 do
-    begin
-      if SameText(LViews.Children[I].Name, 'View') then
-      begin
-        LView := TKWebApplication.Current.Config.Views.ViewByNode(LViews.Children[I]);
-        if LView.IsAccessGranted(ACM_VIEW) then
-        begin
-          LController := TKExtControllerFactory.Instance.CreateController(Self, LView, Self);
-          FOwner.InitSubController(LController);
-          LController.Display;
-        end;
-      end
-      else if SameText(LViews.Children[I].Name, 'Controller') then
-      begin
-        LController := TKExtControllerFactory.Instance.CreateController(Self, FView, Self, LViews.Children[I]);
-        FOwner.InitSubController(LController);
-        LController.Display;
-      end
-      else
-        raise EKError.Create(_('TabPanel''s SubViews node may only contain View or Controller subnodes.'));
-    end;
-    if Items.Count > 0 then
-      SetActiveTab(0);
-  end;
-end;
-
-procedure TKExtTabPanel.PanelClosed;
-var
-  LPanel: TExtComponent;
-begin
-  LPanel := ParamAsObject('Panel') as TExtComponent;
-  Items.Remove(LPanel);
-  LPanel.Free;
-end;
-
-procedure TKExtTabPanel.SetActiveSubController(const ASubController: IJSController);
-begin
-  SetActiveTab(ASubController.AsObject as TExtComponent);
-end;
-
-procedure TKExtTabPanel.ApplyTabSize;
-begin
-  AddCls('tab-strip-' + Config.GetString('TabSize', GetDefaultTabSize));
-end;
-
-function TKExtTabPanel.GetDefaultTabSize: string;
-begin
-  Result := 'normal';
-end;
-
-procedure TKExtTabPanel.TabChange(ATabPanel: TExtTabPanel; ANewTab, AOldTab: TExtComponent);
-var
-  LIntf: IKExtActivable;
-begin
-  if Assigned(ANewTab) and Supports(ANewTab, IKExtActivable, LIntf) then
-    LIntf.Activate;
+  if Assigned(ANewTab) and Supports(ANewTab, IJSActivable, LActivable) then
+    LActivable.Activate;
 end;
 
 function TKExtTabPanel.TabsVisible: Boolean;
@@ -271,9 +193,9 @@ begin
 end;
 
 initialization
-  TKExtControllerRegistry.Instance.RegisterClass('TabPanel', TKExtTabPanelController);
+  TJSControllerRegistry.Instance.RegisterClass('TabPanel', TKExtTabPanelController);
 
 finalization
-  TKExtControllerRegistry.Instance.UnregisterClass('TabPanel');
+  TJSControllerRegistry.Instance.UnregisterClass('TabPanel');
 
 end.

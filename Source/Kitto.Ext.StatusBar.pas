@@ -25,6 +25,7 @@ uses
   , Kitto.JS.Base
   , Kitto.JS
   , Kitto.Ext.Base
+  , Kitto.Ext.Panel
   , Kitto.Metadata.Views
   ;
 
@@ -43,9 +44,12 @@ type
   strict private
     FStatusBar: TKExtDefaultStatusBar;
   strict protected
+    function GetDefaultHeight: Integer; override;
+    function GetDefaultWidth: Integer; override;
     function GetDefaultSplit: Boolean; override;
     procedure InitDefaults; override;
     procedure DoDisplay; override;
+    function GetObjectNamePrefix: string; override;
   end;
 
 implementation
@@ -54,7 +58,7 @@ uses
   EF.Tree
   , Kitto.Web.Application
   , Kitto.Web.Session
-  , Kitto.Ext.Controller
+  , Kitto.JS.Controller
   ;
 
 { TKExtStatusBarController }
@@ -63,7 +67,13 @@ procedure TKExtStatusBarController.DoDisplay;
 begin
   inherited;
   FStatusBar.DefaultText := Config.GetExpandedString('Text');
-  FStatusBar.DefaultIconCls := TKWebApplication.Current.SetViewIconStyle(View, '', 'sb_', 'padding-left: 25px !important;');
+  FStatusBar.DefaultIconCls := TKWebApplication.Current.SetViewIconStyle(View, Config.GetString('ImageName'),
+    'sb_', 'padding-left: 25px !important;');
+end;
+
+function TKExtStatusBarController.GetDefaultHeight: Integer;
+begin
+  Result := 0;
 end;
 
 function TKExtStatusBarController.GetDefaultSplit: Boolean;
@@ -71,10 +81,20 @@ begin
   Result := False;
 end;
 
+function TKExtStatusBarController.GetDefaultWidth: Integer;
+begin
+  Result := 0;
+end;
+
+function TKExtStatusBarController.GetObjectNamePrefix: string;
+begin
+  Result := 'status';
+end;
+
 procedure TKExtStatusBarController.InitDefaults;
 begin
   inherited;
-  Layout := lyFit;
+  Layout := 'fit';
   AutoHeight := True;
 
   FStatusBar := TKExtDefaultStatusBar.CreateAndAddToArray(Items);
@@ -109,9 +129,9 @@ begin
 end;
 
 initialization
-  TKExtControllerRegistry.Instance.RegisterClass('StatusBar', TKExtStatusBarController);
+  TJSControllerRegistry.Instance.RegisterClass('StatusBar', TKExtStatusBarController);
 
 finalization
-  TKExtControllerRegistry.Instance.UnregisterClass('StatusBar');
+  TJSControllerRegistry.Instance.UnregisterClass('StatusBar');
 
 end.

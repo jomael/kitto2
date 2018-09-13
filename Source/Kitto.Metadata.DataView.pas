@@ -533,6 +533,7 @@ type
     // Same as above but fires the view table's model's Before/AfterNewRecord events.
     procedure ApplyNewRecordRulesAndFireEvents(const AViewTable: TKViewTable; const AIsCloned: Boolean);
     procedure ApplyEditRecordRules;
+    procedure ApplyDuplicateRecordRules;
     procedure ApplyBeforeRules;
     procedure ApplyAfterRules;
 
@@ -542,7 +543,7 @@ type
 
     /// <summary>
     ///  Replaces all field name markers in AText with the current field values
-    ///  in JSON format and returns the resulting expanded string.
+    ///  in JSON format.
     ///  A field name marker is in the form {FieldName}.
     ///  Pass True in AEmptyNulls to expand null fields to empty strings,
     ///  otherwise they are expanded as 'null'.
@@ -550,8 +551,8 @@ type
     ///  is not expanded (useful to avoid infinite recursion when this method
     ///  is called by TKViewTableField.GetAsJSONValue).
     /// </summary>
-    function ExpandFieldJSONValues(const AText: string;
-      const AEmptyNulls: Boolean; const ASender: TKViewField = nil): string;
+    procedure ExpandFieldJSONValues(var AText: string;
+      const AEmptyNulls: Boolean; const ASender: TKViewField = nil);
 
     /// <summary>
     ///  Replaces occurrencess of {FieldName} tags in the specified string
@@ -560,7 +561,7 @@ type
     ///  occurrences of {MasterRecord.FieldName} with string representations of
     ///  master record field values.
     /// </summary>
-    function ExpandExpression(const AExpression: string): string; override;
+    procedure ExpandExpression(var AExpression: string); override;
   end;
 
   TKViewTableRecords = class(TKRecords)
@@ -1278,7 +1279,7 @@ function TKViewTable.GetResourceURI: string;
 begin
   Result := View.GetResourceURI;
   if Result <> '' then
-    Result := Result + Join(GetNamePath, '/');
+    Result := Result + '/' + Join(GetNamePath, '/');
 end;
 
 function TKViewTable.GetRules: TKRules;
@@ -1302,9 +1303,11 @@ begin
 end;
 
 function TKViewTable.FindLayout(const AKind: string): TKLayout;
+var
+  LDefaultLayoutName: string;
 begin
-  Result := View.Catalog.Layouts.FindLayout(
-    SmartConcat(View.PersistentName, '.', Join(GetNamePath, '.')) + '_' + AKind);
+  LDefaultLayoutName := SmartConcat(View.PersistentName, '.', Join(GetNamePath, '.')) + '_' + AKind;
+  Result := View.Catalog.Layouts.FindLayout(LDefaultLayoutName);
 end;
 
 function TKViewTable.FindNode(const APath: string;
@@ -1351,7 +1354,7 @@ begin
   begin
     Result := MasterTable.GetNamePath;
     SetLength(Result, Length(Result) + 1);
-    Result[High(Result)] := '/' + MasterTable.GetModelDetailReferenceName;
+    Result[High(Result)] := MasterTable.GetModelDetailReferenceName;
     if Result[High(Result)] = '' then
       Result[High(Result)] := ModelName;
   end
@@ -1373,11 +1376,11 @@ end;
 
 function TKViewTable.IsAccessGranted(const AMode: string): Boolean;
 begin
-  Result := TKAccessController.Current.IsAccessGranted(TKAuthenticator.Current.UserName, GetResourceURI, AMode)
+  Result := TKAccessController.Current.IsAccessGranted(TKAuthenticator.Current.UserName, GetACURI, AMode)
     // A dataview and its main table currently share the same resource URI,
     // so it's useless to test it twice.
-    //and TKConfig.Instance.IsAccessGranted(View.GetResourceURI, AMode)
-    and TKAccessController.Current.IsAccessGranted(TKAuthenticator.Current.UserName, Model.GetResourceURI, AMode);
+    //and TKConfig.Instance.IsAccessGranted(View.GetACURI, AMode)
+    and TKAccessController.Current.IsAccessGranted(TKAuthenticator.Current.UserName, Model.GetACURI, AMode);
 end;
 
 function TKViewTable.IsFieldVisible(const AField: TKViewField): Boolean;
@@ -1972,12 +1975,18 @@ begin
 end;
 
 function TKViewField.GetDefaultValue: Variant;
+var
+  LStringValue: string;
 begin
   Result := EvalExpression(GetValue('DefaultValue'));
   if VarIsNull(Result) then
     Result := ModelField.DefaultValue;
   if DataType is TEFStringDataType then
-    Result := TEFMacroExpansionEngine.Instance.Expand(Result);
+  begin
+    LStringValue := Result;
+    TEFMacroExpansionEngine.Instance.Expand(LStringValue);
+    Result := LStringValue;
+  end;
 end;
 
 function TKViewField.GetDerivedFields: TArray<TKViewField>;
@@ -2219,8 +2228,8 @@ end;
 
 function TKViewField.IsAccessGranted(const AMode: string): Boolean;
 begin
-  Result := TKAccessController.Current.IsAccessGranted(TKAuthenticator.Current.UserName, GetResourceURI, AMode)
-    and TKAccessController.Current.IsAccessGranted(TKAuthenticator.Current.UserName, ModelField.GetResourceURI, AMode);
+  Result := TKAccessController.Current.IsAccessGranted(TKAuthenticator.Current.UserName, GetACURI, AMode)
+    and TKAccessController.Current.IsAccessGranted(TKAuthenticator.Current.UserName, ModelField.GetACURI, AMode);
 end;
 
 class function TKViewField.IsURLFieldName(const AFieldName: string): Boolean;
@@ -2624,6 +2633,15 @@ begin
     end);
 end;
 
+procedure TKViewTableRecord.ApplyDuplicateRecordRules;
+begin
+  ViewTable.ApplyRules(
+    procedure (ARuleImpl: TKRuleImpl)
+    begin
+      ARuleImpl.DuplicateRecord(Self);
+    end);
+end;
+
 procedure TKViewTableRecord.ApplyNewRecordRules;
 begin
   ViewTable.ApplyRules(
@@ -2899,35 +2917,34 @@ begin
     SetDetailFieldValues(Records.Store.MasterRecord);
 end;
 
-function TKViewTableRecord.ExpandExpression(const AExpression: string): string;
+procedure TKViewTableRecord.ExpandExpression(var AExpression: string);
 var
   I: Integer;
   LField: TKViewTableField;
 begin
-  Result := inherited ExpandExpression(AExpression);
+  inherited ExpandExpression(AExpression);
   if Assigned(Store) and Assigned(Store.MasterRecord) then
   begin
     for I := 0 to Store.MasterRecord.FieldCount - 1 do
     begin
       LField := Store.MasterRecord.Fields[I];
-      Result := ReplaceText(Result, Format('{MasterRecord.%s}',[LField.FieldName]), LField.AsString);
+      ReplaceAllCaseSensitive(AExpression, Format('{MasterRecord.%s}',[LField.FieldName]), LField.AsString);
     end;
   end;
 end;
 
-function TKViewTableRecord.ExpandFieldJSONValues(const AText: string;
-  const AEmptyNulls: Boolean; const ASender: TKViewField): string;
+procedure TKViewTableRecord.ExpandFieldJSONValues(var AText: string;
+  const AEmptyNulls: Boolean; const ASender: TKViewField = nil);
 var
   I: Integer;
   LField: TKViewTableField;
 begin
-  Result := AText;
   for I := 0 to FieldCount - 1 do
   begin
     LField := Fields[I];
     if LField.ViewField <> ASender then
     begin
-      Result := ReplaceText(Result, '{' + LField.FieldName + '}', LField.GetAsJSONValue(True, False, True));
+      ReplaceAllCaseSensitive(AText, '{' + LField.FieldName + '}', LField.GetAsJSONValue(True, False, True));
     end;
   end;
 end;
@@ -3026,7 +3043,9 @@ begin
       if LDisplayTemplate <> '' then
       begin
         // Replace other field values, this field's value and add back quotes.
-        Result := ParentRecord.ExpandFieldJSONValues(ReplaceText(LDisplayTemplate, '{value}', Result), AEmptyNulls, LViewField);
+        ReplaceAllCaseSensitive(LDisplayTemplate, '{value}', Result);
+        ParentRecord.ExpandFieldJSONValues(LDisplayTemplate, AEmptyNulls, LViewField);
+        Result := LDisplayTemplate;
       end;
     end;
   end;

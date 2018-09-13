@@ -1,5 +1,10 @@
 function kittoInit()
 {
+  Ext.define('Kitto.Strings', {
+    singleton: true,
+    loadingMsg: 'Loading...'
+  });
+
   Ext.override(Ext.Component, {
     getTopOwner: function() {
       var o = this.ownerCt;
@@ -7,6 +12,63 @@ function kittoInit()
         return this;
       else
         return o.getTopOwner();
+    }
+  });
+
+  Ext.override(Ext.Panel, {
+    showFloating: function (isModal) {
+      this.hostWindow = new Ext.Window({
+        layout: "fit",
+        title: this.title,
+        width: this.width + 5,
+        height: this.height + 5,
+        header: true,
+        closable: true,//this.closable, // not working
+        onEsc: Ext.emptyFn,
+        resizable: true,
+        draggable: true,
+        maximizable: true,
+        iconCls: this.iconCls,
+        style: this.style,
+        modal: isModal,
+        items: [this]
+      });
+      this.title = '';
+      this.closable = false;
+      this.header = false;
+      this.setIconCls('');
+      this.style = '';
+      // In case it has custom close buttons...
+      this.on('close', function() { this.hostWindow.close(); });
+      this.hostWindow.show(getAnimationOrigin());
+      if (!this.isVisible())
+        this.show(getAnimationOrigin());
+    },
+
+    updateHostWindowTitle: function(title) {
+      if (this.hostWindow)
+        this.hostWindow.setTitle(title);
+    }
+  });
+
+  Ext.override(Ext.TabPanel, {
+    goPrevious: function() {
+      var activeTab = this.getActiveTab();
+      if (activeTab) {
+        var previousTab = activeTab.previousSibling();
+        if (previousTab) {
+          this.setActiveTab(previousTab);
+        }
+      }
+    },
+    goNext: function() {
+      var activeTab = this.getActiveTab();
+      if (activeTab) {
+      var nextTab = activeTab.nextSibling();
+        if (nextTab) {
+          this.setActiveTab(nextTab);
+        }
+      }
     }
   });
 
@@ -92,14 +154,19 @@ function kittoInit()
       return String.format('<div class="x-grid3-check-col{0}"></div>', val ? "-on" : '');
     }
   });
-  
+
   TextMetrics = new Ext.util.TextMetrics("body");
   Download = Ext.DomHelper.append(document.body, {tag: "iframe", cls: "x-hidden"});
 
-  //kittoLoadMask = new Ext.LoadMask({msg: "Kitto is starting...", target: Ext.getBody()});
   Ext.Ajax.on("beforerequest", function() { showKittoLoadMask(1); });
   Ext.Ajax.on("requestcomplete", function() { showKittoLoadMask(-1); });
   Ext.Ajax.on("requestexception", function() { showKittoLoadMask(0); });
 
   Ext.ariaWarn = Ext.emptyFn;
+
+  if (!isMobileBrowser())
+    Ext.tip.QuickTipManager.init();
+  else
+    Ext.tip.QuickTipManager.disable();
+
 }

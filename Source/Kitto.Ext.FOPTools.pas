@@ -19,11 +19,17 @@ unit Kitto.Ext.FOPTools;
 interface
 
 uses
-  DB,
-  SysUtils, Classes,
-  EF.Tree,
-  Kitto.Ext.Controller, Kitto.Ext.DataTool, Kitto.Ext.Base, Kitto.Ext.Tools,
-  Kitto.Metadata.DataView, Kitto.Ext.StandardControllers;
+  DB
+  , SysUtils
+  , Classes
+  , EF.Tree
+  , Kitto.JS.Controller
+  , Kitto.Ext.DataTool
+  , Kitto.Ext.Base
+  , Kitto.Ext.Tools
+  , Kitto.Metadata.DataView
+  , Kitto.Ext.Files
+  ;
 
 type
   TFOPToolController = class(TKExtDownloadFileController)
@@ -134,7 +140,7 @@ begin
     //Expand macros contained into xsl file like:
     // %FILENAME_TO_URL(%APP_PATH%ReportTemplates/logo.jpg)%
     // or %DATE% or %TIME%
-    LXSLContent := TEFMacroExpansionEngine.Instance.Expand(LXSLContent);
+    TEFMacroExpansionEngine.Instance.Expand(LXSLContent);
 
     //Save XSL to a temporary file
     LFileStream.Position := 0;
@@ -166,9 +172,9 @@ begin
 end;
 
 initialization
-  TKExtControllerRegistry.Instance.RegisterClass('FOPTool', TFOPToolController);
+  TJSControllerRegistry.Instance.RegisterClass('FOPTool', TFOPToolController);
 
 finalization
-  TKExtControllerRegistry.Instance.UnregisterClass('FOPTool');
+  TJSControllerRegistry.Instance.UnregisterClass('FOPTool');
 
 end.

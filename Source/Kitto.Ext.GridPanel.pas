@@ -22,21 +22,22 @@ interface
 
 uses
   Generics.Collections
-  , Ext.Base
-  , Ext.Data
-  , Ext.Form
-  , Ext.Grid
   , EF.ObserverIntf
   , EF.Types
   , EF.Tree
-  , Kitto.JS
-  , Kitto.JS.Types
   , Kitto.Metadata.Views
   , Kitto.Metadata.DataView
   , Kitto.Store
   , Kitto.Types
+  , Kitto.JS
+  , Kitto.JS.Types
+  , Kitto.JS.Controller
+  , Ext.Base
+  , Ext.Data
+  , Ext.Form
+  , Ext.Grid
   , Kitto.Ext.Base
-  , Kitto.Ext.Controller
+  , Kitto.Ext.Panel
   , Kitto.Ext.DataPanelLeaf
   , Kitto.Ext.Editors
   ;
@@ -56,7 +57,7 @@ type
     FPageRecordCount: Integer;
     FSelectionModel: TExtSelectionRowModel;
     FInplaceEditing: Boolean;
-    FAutoFormContainer: TKExtPanelControllerBase;
+    FAutoFormContainer: TKExtPanelBase;
     FAutoFormController: IJSController;
     function GetGroupingFieldName: string;
     function CreatePagingToolbar: TExtPagingToolbar;
@@ -88,9 +89,10 @@ type
     function IsActionVisible(const AActionName: string): Boolean; override;
     function IsActionSupported(const AActionName: string): Boolean; override;
     procedure AddUsedViewFields; override;
+  protected
+    function GetObjectNamePrefix: string; override;
   public
     procedure UpdateObserver(const ASubject: IEFSubject; const AContext: string = ''); override;
-    procedure Activate; override;
   //published
     procedure LoadData; override;
     procedure SelectionChanged;
@@ -123,9 +125,15 @@ uses
   , Kitto.Web.Response
   , Kitto.Ext.Utils
   , Kitto.Ext.Form
+  , Kitto.Ext.DataPanel
   ;
 
 { TKExtGridPanel }
+
+function TKExtGridPanel.GetObjectNamePrefix: string;
+begin
+  Result := 'grid';
+end;
 
 function TKExtGridPanel.GetOrderByClause: string;
 var
@@ -174,23 +182,14 @@ var
 begin
   inherited;
   LAnyButtonsRequiringSelection := FButtonsRequiringSelection.Count > 0;
+  if LAnyButtonsRequiringSelection then
+    FSelectionModel.On('selectionchange', GenerateAnonymousFunction('s', GetRowButtonsDisableJS));
+
   // Server-side selectionchange notifcation is expensive - enable only if
   // strictly necessary.
   LServerSideSelectionChangeNeeded := GetAutoFormPlacement <> '';
-
-  // Note: the selectionchange handler must be called in afterrender as well
-  // to account for the first row, which is selected by default.
-  if LAnyButtonsRequiringSelection then
-  begin
-    FSelectionModel.On('selectionchange', GenerateAnonymousFunction('s', GetRowButtonsDisableJS));
-    On('afterrender', GenerateAnonymousFunction(Format('var s = %s;', [FSelectionModel.JSName]) + GetRowButtonsDisableJS));
-  end;
-
   if LServerSideSelectionChangeNeeded then
-  begin
     FSelectionModel.On('selectionchange', GetSelectCall(SelectionChanged));
-    On('afterrender', GetSelectCall(SelectionChanged));
-  end;
 end;
 
 procedure TKExtGridPanel.BeforeEdit;
@@ -212,7 +211,7 @@ begin
   FGridPanel := TExtGridGridPanel.CreateAndAddToArray(Items);
   FGridPanel.Border := False;
   FGridPanel.Header := False;
-  FGridPanel.Region := rgCenter;
+  FGridPanel.Region := 'center';
   FSelectionModel := TExtSelectionRowModel.Create(FGridPanel);
 //  FSelectionModel.Grid := FGridPanel;
   FGridPanel.SelModel := FSelectionModel;
@@ -223,6 +222,12 @@ begin
   FGridPanel.ColumnLines := True;
   FGridPanel.TrackMouseOver := True;
   FGridPanel.EnableHdMenu := False;
+  // We mask globally, see kitto-init.js
+  FGridPanel.ViewConfig.SetConfigItem('loadMask', False);
+
+  TKWebResponse.Current.Items.ExecuteJSCode(FGridPanel, Format(
+    '%s.getView().on("refresh", function() { %s.select(0); });',
+    [FGridPanel.JSName, FSelectionModel.JSName]));
 end;
 
 function TKExtGridPanel.IsActionSupported(const AActionName: string): Boolean;
@@ -250,7 +255,6 @@ var
   LEditable: boolean;
   LIsReadOnlyNode: TEFNode;
   LEditor: TExtFormField;
-  LSubject: IEFSubject;
 begin
   Assert(Assigned(AEditorManager));
 
@@ -271,8 +275,7 @@ begin
   if LEditable then
   begin
     LEditor := AEditorManager.CreateGridCellEditor(FGridPanel, AViewField);
-    if Supports(LEditor, IEFSubject, LSubject) then
-      LSubject.AttachObserver(Self);
+    LEditor.AttachObserver(Self);
     EditItems.Add(LEditor);
     AColumn.Editor := LEditor;
   end;
@@ -304,6 +307,7 @@ var
       LAllowedValues: TEFPairs;
       LJSCode: string;
       LColorValueFieldName: string;
+      LColorPair: string;
     begin
       Result := False;
 
@@ -356,7 +360,9 @@ var
         for I := 0 to High(LColorPairs) do
         begin
           LTriples[I].Value1 := LColorPairs[I].Key;
-          LTriples[I].Value2 := TEFMacroExpansionEngine.Instance.Expand(LColorPairs[I].Value);
+          LColorPair := LColorPairs[I].Value;
+          TEFMacroExpansionEngine.Instance.Expand(LColorPair);
+          LTriples[I].Value2 := LColorPair;
           LTriples[I].Value3 := AViewField.DisplayTemplate;
         end;
         // Pass array to the client-side renderer.
@@ -544,6 +550,8 @@ var
 
     LColumn := CreateColumn;
     LColumn.Sortable := not AViewField.IsBlob;
+    LColumn.MenuDisabled := True; //Column Menu always disabled
+
     if Assigned(ALayoutNode) then
       LColumn.Header := _(ALayoutNode.GetString('DisplayLabel', AViewField.DisplayLabel))
     else
@@ -634,7 +642,7 @@ begin
     begin
       if not Assigned(FAutoFormController) then
       begin
-        FAutoFormController := InitEditController(FAutoFormContainer, FindCurrentViewRecord, emViewCurrentRecord);
+        FAutoFormController := InitEditController(FAutoFormContainer, LRecord, 'View');
         FAutoFormController.Config.SetBoolean('HideButtons', True);
         FAutoFormController.Config.SetString('LayoutNamePrefix', 'Auto');
         FAutoFormController.Config.SetString('DetailStyle', 'None');
@@ -817,19 +825,20 @@ begin
   LAutoFormPlacement := GetAutoFormPlacement;
   if LAutoFormPlacement <> '' then
   begin
-    FAutoFormContainer := TKExtPanelControllerBase.CreateAndAddToArray(Items);
+    FAutoFormContainer := TKExtPanelBase.CreateAndAddToArray(Items);
+    FAutoFormContainer.Layout := 'fit';
     FAutoFormContainer.Border := False;
     FAutoFormContainer.Header := False;
-    FAutoFormContainer.Layout := lyFit;
+    FAutoFormContainer.Layout := 'fit';
     FAutoFormContainer.Split := True;
     if SameText(LAutoFormPlacement, 'Right') then
     begin
-      FAutoFormContainer.Region := rgEast;
+      FAutoFormContainer.Region := 'east';
       FAutoFormContainer.Width := Config.GetInteger('AutoFormPlacement/Size', DEFAULT_AUTOFORM_WIDTH);
     end
     else if SameText(LAutoFormPlacement, 'Bottom') then
     begin
-      FAutoFormContainer.Region := rgSouth;
+      FAutoFormContainer.Region := 'south';
       FAutoFormContainer.Height := Config.GetInteger('AutoFormPlacement/Size', DEFAULT_AUTOFORM_HEIGHT);
     end
     else
@@ -909,10 +918,13 @@ begin
 end;
 
 procedure TKExtGridPanel.ConfirmLookup;
+var
+  LParentDataPanel: TKExtDataPanelController;
 begin
-  GetParentDataPanel.Config.SetObject('Sys/LookupResultRecord', GetCurrentViewRecord);
-  CloseHostContainer;
-  GetParentDataPanel.NotifyObservers('LookupConfirmed');
+  LParentDataPanel := GetParentDataPanel;
+  LParentDataPanel.Close;
+  LParentDataPanel.Config.SetObject('Sys/LookupResultRecord', GetCurrentViewRecord);
+  LParentDataPanel.NotifyObservers('LookupConfirmed');
 end;
 
 procedure TKExtGridPanel.CancelInplaceChanges;
@@ -923,9 +935,12 @@ begin
 end;
 
 procedure TKExtGridPanel.CancelLookup;
+var
+  LParentDataPanel: TKExtDataPanelController;
 begin
-  CloseHostContainer;
-  GetParentDataPanel.NotifyObservers('LookupCanceled');
+  LParentDataPanel := GetParentDataPanel;
+  LParentDataPanel.Close;
+  LParentDataPanel.NotifyObservers('LookupCanceled');
 end;
 
 procedure TKExtGridPanel.ShowConfirmButtons(const AShow: Boolean);
@@ -1053,13 +1068,6 @@ begin
   //FPagingToolbar.Store := nil; // Avoid double destruction of the store.
 end;
 
-procedure TKExtGridPanel.Activate;
-begin
-  inherited;
-  if Assigned(FSelectionModel) then
-    FSelectionModel.Select(0);
-end;
-
 function TKExtGridPanel.AddActionButton(const AUniqueId: string;
   const AView: TKView; const AToolbar: TKExtToolbar): TKExtActionButton;
 begin
@@ -1106,9 +1114,9 @@ begin
 end;
 
 initialization
-  TKExtControllerRegistry.Instance.RegisterClass('GridPanel', TKExtGridPanel);
+  TJSControllerRegistry.Instance.RegisterClass('GridPanel', TKExtGridPanel);
 
 finalization
-  TKExtControllerRegistry.Instance.UnregisterClass('GridPanel');
+  TJSControllerRegistry.Instance.UnregisterClass('GridPanel');
 
 end.

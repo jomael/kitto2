@@ -29,7 +29,7 @@ uses
   , EF.Tree
   , Kitto.JS.Types
   , Kitto.Ext.Base
-  , Kitto.Ext.Controller
+  , Kitto.JS.Controller
   , Kitto.Metadata.Views
   ;
 
@@ -114,7 +114,8 @@ implementation
 uses
   Types
   , StrUtils
-  , RTTI
+  , Rtti
+  , NetEncoding
   {$IFDEF MSWINDOWS}
   , Vcl.Graphics
   , Vcl.Imaging.jpeg
@@ -129,7 +130,6 @@ uses
   , Kitto.Web.Response
   , Kitto.Auth
   , Kitto.AccessControl
-  , Kitto.Utils
   , Kitto.Config;
 
 function CallViewControllerStringMethod(const AView: TKView;
@@ -148,7 +148,7 @@ begin
   LType := AView.ControllerType;
   if LType <> '' then
   begin
-    LControllerClass := TKExtControllerRegistry.Instance.FindClass(LType);
+    LControllerClass := TJSControllerRegistry.Instance.FindClass(LType);
     if Assigned(LControllerClass) then
     begin
       LMethod := LContext.GetType(LControllerClass).GetMethod(AMethodName);
@@ -249,7 +249,7 @@ begin
         LDisplayLabel := _(LNode.GetString('DisplayLabel', LMenuItem.View.DisplayLabel));
         if LDisplayLabel = '' then
           LDisplayLabel := CallViewControllerStringMethod(LView, 'GetDefaultDisplayLabel', '');
-        LMenuItem.Text := HTMLEncode(LDisplayLabel);
+        LMenuItem.Text := TNetEncoding.HTML.Encode(LDisplayLabel);
         // No tooltip here - could be done through javascript if needed.
       end
       else
@@ -257,7 +257,7 @@ begin
         if ANode.TreeViewNodes[I].TreeViewNodeCount > 0 then
         begin
           LDisplayLabel := _(LNode.GetString('DisplayLabel', LNode.AsString));
-          LMenuItem.Text := HTMLEncode(LDisplayLabel);
+          LMenuItem.Text := TNetEncoding.HTML.Encode(LDisplayLabel);
           LMenuItem.IconCls := TKWebApplication.Current.SetIconStyle('Folder', LNode.GetString('ImageName'));
           LSubMenu := TExtMenuMenu.Create(AMenu.Items);
           LMenuItem.Menu := LSubMenu;
@@ -298,7 +298,7 @@ begin
       LButton.On('click', GetClickFunction(LButton.View));
       LButton.Disabled := not LIsEnabled;
     end;
-    LButton.Text := HTMLEncode(ADisplayLabel);
+    LButton.Text := TNetEncoding.HTML.Encode(ADisplayLabel);
     if TKWebApplication.Current.TooltipsEnabled then
       LButton.Tooltip := LButton.Text;
 

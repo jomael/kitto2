@@ -24,7 +24,7 @@ uses
   Classes,
   Ext.Base,
   EF.Tree, EF.ObserverIntf,
-  Kitto.Ext.Controller, Kitto.Metadata.DataView, Kitto.Ext.Base,
+  Kitto.JS.Controller, Kitto.Metadata.DataView, Kitto.Ext.Base,
   Kitto.Ext.DataPanelComposite;
 
 type
@@ -59,7 +59,8 @@ type
   strict protected
     procedure InitComponents; override;
     procedure SetViewTable(const AValue: TKViewTable); override;
-    function GetRegionDefaultControllerClass(const ARegion: TExtBoxComponentRegion): string; override;
+    function GetRegionDefaultControllerClass(const ARegion: string): string; override;
+    function GetObjectNamePrefix: string; override;
   public
     function GetFilterExpression: string; override;
   end;
@@ -70,6 +71,7 @@ uses
   SysUtils
   , StrUtils
   , EF.Localization
+  , EF.Macros
   , EF.StrUtils
   , Kitto.Types
   , Kitto.Config
@@ -85,7 +87,7 @@ function TKExtFilterPanel.GetFilterACURI(const AACName: string): string;
 begin
   Assert(Assigned(FView));
 
-  Result := FView.GetResourceURI + '/Filters/' + AACName;
+  Result := FView.GetACURI + '/Filters/' + AACName;
 end;
 
 function TKExtFilterPanel.IsFilterVisible(const AACName: string): Boolean;
@@ -119,7 +121,7 @@ var
     Result := TKExtFilterPanel.CreateAndAddToArray(Items);
     try
       Result.Border := False;
-      Result.Layout := lyForm;
+      Result.Layout := 'form';
       Result.Collapsible := False;
       Result.Frame := False;
       Result.FConnector := FConnector;
@@ -166,7 +168,7 @@ begin
   LItems := AConfig.GetNode('Items');
   if LItems.FindNode('ColumnBreak') <> nil then
   begin
-    Layout := lyHbox;
+    Layout := 'hbox';
     LCurrentPanel := CreateColumnBreak(nil);
   end
   else
@@ -232,7 +234,7 @@ procedure TKExtFilterPanel.InitDefaults;
 begin
   inherited;
   Border := False;
-  Layout := lyForm;
+  Layout := 'form';
   Collapsible := True;
   Collapsed := False;
   Frame := True;
@@ -272,6 +274,11 @@ begin
     Result := SmartConcat(Result, ' and ', FFilterPanel.GetFilterExpression);
 end;
 
+function TKExtListPanelController.GetObjectNamePrefix: string;
+begin
+  Result := 'list';
+end;
+
 procedure TKExtListPanelController.CreateFilterPanel;
 var
   LItems: TEFNode;
@@ -282,7 +289,7 @@ begin
     if Assigned(LItems) and (LItems.ChildCount > 0) then
     begin
       FFilterPanel := TKExtFilterPanel.CreateAndAddToArray(Items);
-      FFilterPanel.Region := rgNorth;
+      FFilterPanel.Region := 'north';
       FFilterPanel.OnChange := FilterPanelChange;
       FFilterPanel.Configure(ViewTable, LItems.Parent as TEFNode);
       FFilterPanel.On('afterrender', GenerateAnonymousFunction(UpdateLayout));
@@ -296,15 +303,21 @@ begin
 end;
 
 procedure TKExtListPanelController.InitComponents;
+var
+  LTitle: string;
 begin
   inherited;
   if Title = '' then
-    Title := _(TKWebApplication.Current.Config.MacroExpansionEngine.Expand(ViewTable.PluralDisplayLabel));
+  begin
+    LTitle := ViewTable.PluralDisplayLabel;
+    TEFMacroExpansionEngine.Instance.Expand(LTitle);
+    Title := _(LTitle);
+  end;
 end;
 
-function TKExtListPanelController.GetRegionDefaultControllerClass(const ARegion: TExtBoxComponentRegion): string;
+function TKExtListPanelController.GetRegionDefaultControllerClass(const ARegion: string): string;
 begin
-  if ARegion = rgCenter then
+  if ARegion = 'Center' then
     Result := 'GridPanel'
   else
     Result := inherited GetRegionDefaultControllerClass(ARegion);
@@ -317,9 +330,9 @@ begin
 end;
 
 initialization
-  TKExtControllerRegistry.Instance.RegisterClass('List', TKExtListPanelController);
+  TJSControllerRegistry.Instance.RegisterClass('List', TKExtListPanelController);
 
 finalization
-  TKExtControllerRegistry.Instance.UnregisterClass('List');
+  TJSControllerRegistry.Instance.UnregisterClass('List');
 
 end.

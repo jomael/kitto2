@@ -19,12 +19,14 @@ Controller: List
 MainTable:
   Model: Doll
 
+  EditController:
+    ShowNavigationButtons: True
+    Width: 520
+    Height: 480
+
   Controller:
     PageRecordCount: 2
     AllowViewing: True
-    PopupWindow:
-      Width: 480
-      Height: 480
 
     Grouping:
       FieldName: Hair

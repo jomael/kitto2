@@ -21,9 +21,13 @@ unit Kitto.Ext.TreePanel;
 interface
 
 uses
-  Ext.Tree,
-  EF.Tree,
-  Kitto.Metadata.Views, Kitto.Ext.Base, Kitto.Ext.Controller, Kitto.Ext.Utils;
+  EF.Tree
+  , Kitto.Metadata.Views
+  , Kitto.JS.Controller
+  , Ext.Tree
+  , Kitto.Ext.Panel
+  , Kitto.Ext.Utils
+  ;
 
 type
   TKExtTreeTreeNode = class(TExtTreeTreeNode)
@@ -42,7 +46,6 @@ type
   private
     FView: TKView;
     FTreeViewRenderer: TKExtTreeViewRenderer;
-    FConfig: TEFNode;
     FTreeView: TKTreeView;
     procedure SetView(const AValue: TKView);
     procedure AddNode(const ANode: TKTreeViewNode; const ADisplayLabel: string;
@@ -68,10 +71,10 @@ implementation
 
 uses
   SysUtils
+  , NetEncoding
   , Ext.Base
   , EF.Localization
   , Kitto.Config
-  , Kitto.Utils
   , Kitto.Auth
   , Kitto.AccessControl
   , Kitto.Web.Application
@@ -99,14 +102,14 @@ procedure TKExtTreePanelController.DoDisplay;
 begin
   inherited;
   Title := _(View.DisplayLabel);
-  FTreePanel.FConfig := Config;
+  FTreePanel.Config.Assign(Config);
   FTreePanel.View := View;
 end;
 
 procedure TKExtTreePanelController.InitDefaults;
 begin
   inherited;
-  Layout := lyFit;
+  Layout := 'fit';
 
   FTreePanel := TKExtTreePanel.CreateAndAddToArray(Items);
 end;
@@ -137,7 +140,7 @@ begin
   FView := AValue;
   if not Assigned(FTreeViewRenderer) then
     FTreeViewRenderer := TKExtTreeViewRenderer.Create;
-  LViewNode := FConfig.GetNode('TreeView');
+  LViewNode := Config.GetNode('TreeView');
   FTreeView := TKWebApplication.Current.Config.Views.ViewByNode(LViewNode) as TKTreeView;
   Assert(Assigned(FTreeView));
   FTreeViewRenderer.Render(FTreeView,
@@ -158,7 +161,7 @@ var
   LViewId: string;
 begin
   LViewId := ParamAsString('View');
-  if LViewId <> '' then
+  if (LViewId <> '') and (LViewId <> 'undefined') then
     TKWebApplication.Current.DisplayView(TKView(StrToInt(LViewId)));
 end;
 
@@ -193,7 +196,7 @@ begin
       LExtNode.IconCls := TKWebApplication.Current.SetViewIconStyle(LExtNode.View, GetTreeViewNodeImageName(LOriginalNode, LExtNode.View));
       LExtNode.Disabled := not LIsEnabled;
     end;
-    LExtNode.Text := HTMLEncode(ADisplayLabel);
+    LExtNode.Text := TNetEncoding.HTML.Encode(ADisplayLabel);
     if TKWebApplication.Current.TooltipsEnabled then
       LExtNode.Qtip := LExtNode.Text;
     if LOriginalNode.TreeViewNodeCount > 0 then
@@ -218,10 +221,10 @@ begin
 end;
 
 initialization
-  TKExtControllerRegistry.Instance.RegisterClass('TreePanel', TKExtTreePanelController);
+  TJSControllerRegistry.Instance.RegisterClass('TreePanel', TKExtTreePanelController);
 
 finalization
-  TKExtControllerRegistry.Instance.UnregisterClass('TreePanel');
+  TJSControllerRegistry.Instance.UnregisterClass('TreePanel');
 
 end.
 

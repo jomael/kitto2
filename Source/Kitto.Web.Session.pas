@@ -58,8 +58,7 @@ type
     FOpenControllers: TList<IJSController>;
     FHomeController: IJSController;
     FLoginController: IJSController;
-    FControllerHostWindow: IJSContainer;
-    FControllerContainer: IJSControllerContainer;
+    FControllerContainer: IJSContainer;
     FStatusHost: IJSStatusHost;
     FHomeViewNodeName: string;
     FViewportContent: string;
@@ -128,13 +127,12 @@ type
     /// <summary>
     ///  A reference to the main container of controllers.
     /// </summary>
-    property ControllerContainer: IJSControllerContainer read FControllerContainer write FControllerContainer;
+    property ControllerContainer: IJSContainer read FControllerContainer write FControllerContainer;
     /// <summary>
     ///  A reference to the status bar to be used for wait messages.
     ///  It is of type TKExtStatusBar.
     /// </summary>
     property StatusHost: IJSStatusHost read FStatusHost write FStatusHost;
-    property ControllerHostWindow: IJSContainer read FControllerHostWindow write FControllerHostWindow;
     property OpenControllers: TList<IJSController> read FOpenControllers;
     property HomeController: IJSController read FHomeController write FHomeController;
     property LoginController: IJSController read FLoginController write FLoginController;
@@ -348,7 +346,6 @@ destructor TKWebSession.Destroy;
 begin
   NilEFIntf(FHomeController);
   NilEFIntf(FLoginController);
-  NilEFIntf(FControllerHostWindow);
   NilEFIntf(FControllerContainer);
   NilEFIntf(FStatusHost);
 

@@ -15,7 +15,7 @@
 -------------------------------------------------------------------------------}
 
 ///	<summary>
-///	  Basic logging services.
+///	 Basic logging services.
 ///	</summary>
 unit EF.Logger;
 
@@ -24,14 +24,19 @@ unit EF.Logger;
 interface
 
 uses
-  SysUtils, Types, Classes,
-  EF.ObserverIntf, EF.Tree, EF.Macros;
+  SysUtils
+  , Types
+  , Classes
+  , EF.ObserverIntf
+  , EF.Classes
+  , EF.Tree
+  , EF.Macros
+  ;
 
 type
-  TEFLogger = class(TEFSubjectAndObserver)
+  TEFLogger = class(TEFComponent)
   private
     FLogLevel: Integer;
-    FConfig: TEFNode;
     FMacroExpansionEngine: TEFMacroExpansionEngine;
     class var
       FInstance: TEFLogger;
@@ -40,6 +45,7 @@ type
     class constructor Create;
     class destructor Destroy;
     procedure AfterConstruction; override;
+    property MacroExpansionEngine: TEFMacroExpansionEngine read FMacroExpansionEngine;
   public
     const LOG_LOW = 1;
     const LOG_MEDIUM = 2;
@@ -49,7 +55,7 @@ type
 
     const DEFAULT_LOG_LEVEL = LOG_LOW;
 
-    procedure Configure(const AConfig: TEFNode; const AMacroExpansionEngine: TEFMacroExpansionEngine);
+    procedure Configure(const AConfig: TEFTree; const AMacroExpansionEngine: TEFMacroExpansionEngine);
 
     property LogLevel: Integer read FLogLevel write FLogLevel;
 
@@ -61,7 +67,6 @@ type
     procedure LogDetailed(const AString: string); inline;
     procedure LogDebug(const AString: string); inline;
 
-    procedure LogStrings(const ATitle: string; const AStrings: TStrings; const ALogLevel: Integer = DEFAULT_LOG_LEVEL);
     procedure LogFmt(const AString: string; const AParams: array of const;
       const ALogLevel: Integer = DEFAULT_LOG_LEVEL);
 
@@ -73,7 +78,7 @@ type
     FIsEnabled: Boolean;
   strict protected
     function GetConfigPath: string; virtual;
-    procedure Configure(const AConfig: TEFNode; const AMacroExpansionEngine: TEFMacroExpansionEngine); virtual;
+    procedure Configure(const AConfig: TEFComponentConfig; const AMacroExpansionEngine: TEFMacroExpansionEngine); virtual;
     procedure DoLog(const AString: string); virtual; abstract;
     property IsEnabled: Boolean read FIsEnabled;
   public
@@ -104,12 +109,8 @@ end;
 
 procedure TEFLogger.Log(const AString: string; const ALogLevel: Integer);
 begin
-  TThread.Synchronize(nil,
-    procedure
-    begin
-      if FLogLevel >= ALogLevel then
-        NotifyObservers(AString);
-    end);
+  if FLogLevel >= ALogLevel then
+    NotifyObservers(AString);
 end;
 
 procedure TEFLogger.LogDebug(const AString: string);
@@ -143,15 +144,6 @@ begin
   Log(AString, LOG_MEDIUM);
 end;
 
-procedure TEFLogger.LogStrings(const ATitle: string;
-  const AStrings: TStrings; const ALogLevel: Integer);
-begin
-  Assert(Assigned(AStrings));
-
-  Log(ATitle, ALogLevel);
-  Log(AStrings.Text, ALogLevel);
-end;
-
 procedure TEFLogger.SetLogLevelFromConfig(const ALogLevelNode: TEFNode);
 var
   LValue: string;
@@ -177,17 +169,16 @@ begin
   end;
 end;
 
-procedure TEFLogger.Configure(const AConfig: TEFNode;
-  const AMacroExpansionEngine: TEFMacroExpansionEngine);
+procedure TEFLogger.Configure(const AConfig: TEFTree; const AMacroExpansionEngine: TEFMacroExpansionEngine);
 begin
   if Assigned(AConfig) then
     SetLogLevelFromConfig(AConfig.FindNode('Level'));
   try
-    FConfig := AConfig;
+    Config.Assign(AConfig);
     FMacroExpansionEngine := AMacroExpansionEngine;
     NotifyObservers('{ConfigChanged}');
   finally
-    FConfig := nil;
+    Config.Clear;
     FMacroExpansionEngine := nil;
   end;
 end;
@@ -200,8 +191,7 @@ begin
   TEFLogger.Instance.AttachObserver(Self);
 end;
 
-procedure TEFLogEndpoint.Configure(const AConfig: TEFNode;
-  const AMacroExpansionEngine: TEFMacroExpansionEngine);
+procedure TEFLogEndpoint.Configure(const AConfig: TEFComponentConfig; const AMacroExpansionEngine: TEFMacroExpansionEngine);
 begin
   FIsEnabled := False;
   if Assigned(AConfig) then
@@ -223,7 +213,7 @@ procedure TEFLogEndpoint.UpdateObserver(const ASubject: IEFSubject; const AConte
 begin
   inherited;
   if SameText(AContext, '{ConfigChanged}') then
-    Configure(TEFLogger(ASubject.AsObject).FConfig, TEFLogger(ASubject.AsObject).FMacroExpansionEngine)
+    Configure(TEFLogger(ASubject.AsObject).Config, TEFLogger(ASubject.AsObject).MacroExpansionEngine)
   else
     DoLog(AContext);
 end;

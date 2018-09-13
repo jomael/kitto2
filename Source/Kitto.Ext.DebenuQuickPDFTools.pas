@@ -19,11 +19,19 @@ unit Kitto.Ext.DebenuQuickPDFTools;
 interface
 
 uses
-  DB, DebenuPDFLibraryLite1112_TypeLibrary,
-  SysUtils, Classes, System.UITypes,
-  EF.Tree,
-  Kitto.Ext.Controller, Kitto.Ext.DataTool, Kitto.Ext.Base, Kitto.Ext.Tools,
-  Kitto.Metadata.DataView, Kitto.Ext.StandardControllers;
+  DB
+  , SysUtils
+  , Classes
+  , UITypes
+  , DebenuPDFLibraryLite1112_TypeLibrary
+  , EF.Tree
+  , Kitto.JS.Controller
+  , Kitto.Ext.DataTool
+  , Kitto.Ext.Base
+  , Kitto.Ext.Tools
+  , Kitto.Metadata.DataView
+  , Kitto.Ext.Files
+  ;
 
 type
   ELsPDFError = class(Exception) end;
@@ -362,8 +370,9 @@ var
 
   function ExpandExpression(const AExpression: string): string;
   begin
-    Result := LRecord.ExpandFieldJSONValues(AExpression, True);
-    Result := TEFMacroExpansionEngine.Instance.Expand(Result);
+    Result := AExpression;
+    LRecord.ExpandFieldJSONValues(Result, True);
+    TEFMacroExpansionEngine.Instance.Expand(Result);
   end;
 
 begin
@@ -508,9 +517,9 @@ begin
 end;
 
 initialization
-  TKExtControllerRegistry.Instance.RegisterClass('MergePDFTool', TMergePDFToolController);
+  TJSControllerRegistry.Instance.RegisterClass('MergePDFTool', TMergePDFToolController);
 
 finalization
-  TKExtControllerRegistry.Instance.UnregisterClass('MergePDFTool');
+  TJSControllerRegistry.Instance.UnregisterClass('MergePDFTool');
 
 end.

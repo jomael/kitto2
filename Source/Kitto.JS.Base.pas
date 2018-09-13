@@ -1,18 +1,35 @@
+{-------------------------------------------------------------------------------
+   Copyright 2012-2018 Ethea S.r.l.
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+-------------------------------------------------------------------------------}
+
 unit Kitto.JS.Base;
+
+{$I Kitto.Defines.inc}
 
 interface
 
 uses
-  Rtti
-  , Generics.Collections
-  , EF.ObserverIntf
+  Generics.Collections
+  , EF.Classes
   , EF.Tree
   , Kitto.JS.Types
   , Kitto.JS.Formatting
   ;
 
 type
-  TJSBase = class(TEFSubjectAndObserver)
+  TJSBase = class(TEFComponent)
   private
     FOwner: TJSBase;
     FChildren: TObjectList<TJSBase>;
@@ -22,8 +39,9 @@ type
     procedure SetOwner(const AValue: TJSBase);
   strict protected
     procedure AddChild(const AChild: TJSBase);
-    procedure RemoveChild(const AChild: TJSBase);
+    procedure RemoveChild(const AChild: TJSBase); virtual;
     procedure InitDefaults; virtual;
+    function DoLoadConfig: TEFComponentConfig; override;
   public
     destructor Destroy; override;
     procedure BeforeDestruction; override;
@@ -38,6 +56,11 @@ type
 
     function FindChildByJSName(const AJSName: string): TJSBase;
     procedure FreeAllChildren;
+
+    /// <summary>
+    ///  Returns a string representation of the tree of children for debugging purposes.
+    /// </summary>
+    function GetChildrenNameTree: string;
   end;
   TJSBaseClass = class of TJSBase;
 
@@ -112,37 +135,14 @@ type
     function AsFormattedText: string;
   end;
 
-function GetMethodName(const AMethod: TJSProcedure): string;
-
 implementation
 
 uses
   SysUtils
+  , StrUtils
   , EF.StrUtils
   , Kitto.JS
   ;
-
-function GetMethodName(const AMethod: TJSProcedure): string;
-var
-  LInfo: TRttiType;
-  LMethod: TMethod;
-  LRttiMethod: TRttiMethod;
-  LObject: TObject;
-begin
-  LMethod := TMethod(AMethod);
-  LObject := LMethod.Data;
-
-  LInfo := TRttiContext.Create.GetType(LObject.ClassType);
-  for LRttiMethod in LInfo.GetMethods do
-  begin
-    Result := LRttiMethod.Name;
-    if LRttiMethod.CodeAddress = LMethod.Code then
-      Break;
-  end;
-
-  if Result = '' then
-    raise Exception.Create('Method not found')
-end;
 
 { TJSBase }
 
@@ -193,6 +193,13 @@ begin
   inherited;
 end;
 
+function TJSBase.DoLoadConfig: TEFComponentConfig;
+begin
+  //inherited;
+  // No need for peristent config.
+  Result := TEFComponentConfig.Create;
+end;
+
 function TJSBase.FindChildByJSName(const AJSName: string): TJSBase;
 var
   I: Integer;
@@ -214,6 +221,21 @@ end;
 procedure TJSBase.FreeAllChildren;
 begin
   FChildren.Clear;
+end;
+
+function TJSBase.GetChildrenNameTree: string;
+var
+  I: Integer;
+  LChildrenTree: string;
+begin
+  Result := '';
+  for I := 0 to FChildren.Count - 1 do
+  begin
+    Result := Result + IfThen(FChildren[I].JSName <> '', FChildren[I].JSName, '?');
+    LChildrenTree := FChildren[I].GetChildrenNameTree;
+    if LChildrenTree <> '' then
+      Result := Result + ' (' + LChildrenTree + ') ';
+  end;
 end;
 
 procedure TJSBase.InitDefaults;

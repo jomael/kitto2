@@ -25,7 +25,7 @@ uses
   , EF.Tree
   , Kitto.Metadata.Views
   , Kitto.Ext.Base
-  , Kitto.Ext.Controller
+  , Kitto.JS.Controller
   , Kitto.Ext.TabPanel
   ;
 
@@ -34,11 +34,12 @@ const
   DEFAULT_TILE_WIDTH = 100;
 
 type
-  // A tile page to be added to a container.
-  TKExtTilePanel = class(TKExtPanelBase)
+  /// <sumnmary>
+  ///  A tile page to be added to a container.
+  /// </sumnmary>
+  TKExtTilePage = class(TKExtPanelBase)
   strict private
     FView: TKView;
-    FConfig: TEFTree;
     FTileBoxHtml: string;
     FColors: TStringDynArray;
     FColorIndex: Integer;
@@ -55,7 +56,6 @@ type
     function GetColors(const AColorSetName: string): TStringDynArray;
   public
     const DEFAULT_COLOR_SET = 'Metro';
-    property Config: TEFTree read FConfig write FConfig;
     property View: TKView read FView write FView;
     procedure DoDisplay;
   //published
@@ -63,19 +63,23 @@ type
     procedure DisplayPage;
   end;
 
-  // Hosted by the tile panel controller; manages the additional tile page.
+  /// <sumnmary>
+  ///  A tab panel hosted by the tile panel controller; manages the additional tile tab.
+  /// </sumnmary>
   TKExtTileTabPanel = class(TKExtTabPanel)
-  private
-    FTilePanel: TKExtTilePanel;
-    procedure AddTileSubPanel;
+  strict private
+    FTilePage: TKExtTilePage;
+    procedure DisplayTilePage;
   strict protected
     function TabsVisible: Boolean; override;
   public
     procedure SetAsControllerContainer; override;
-    procedure DisplaySubViewsAndControllers; override;
+    procedure DisplaySubViewsAsTabs; override;
   end;
 
-  // A tab panel controller with a tile menu on the first page.
+  /// <sumnmary>
+  ///  A tab panel controller with a tile menu on the first page.
+  /// </sumnmary>
   TKExtTilePanelController = class(TKExtTabPanelController)
   strict protected
     function GetTabPanelClass: TKExtTabPanelClass; override;
@@ -87,13 +91,13 @@ implementation
 uses
   SysUtils
   , StrUtils
+  , NetEncoding
   , Ext.Base
   , EF.StrUtils
   , EF.Macros
   , EF.Localization
   , Kitto.JS
   , Kitto.Config
-  , Kitto.Utils
   , Kitto.Web.Application
   , Kitto.Web.Request
   , Kitto.Web.Response
@@ -114,12 +118,10 @@ end;
 
 { TKExtTileTabPanel }
 
-procedure TKExtTileTabPanel.DisplaySubViewsAndControllers;
+procedure TKExtTileTabPanel.DisplaySubViewsAsTabs;
 begin
-  AddTileSubPanel;
+  DisplayTilePage;
   inherited;
-  if Items.Count > 0 then
-    SetActiveTab(0);
 end;
 
 procedure TKExtTileTabPanel.SetAsControllerContainer;
@@ -134,18 +136,18 @@ begin
   Result := Config.GetBoolean('TabsVisible', not TKWebRequest.Current.IsMobileBrowser);
 end;
 
-procedure TKExtTileTabPanel.AddTileSubPanel;
+procedure TKExtTileTabPanel.DisplayTilePage;
 begin
   inherited;
-  FTilePanel := TKExtTilePanel.CreateAndAddToArray(Items);
-  FTilePanel.View := View;
-  FTilePanel.Config := Config;
-  FTilePanel.DoDisplay;
+  FTilePage := TKExtTilePage.CreateAndAddToArray(Items);
+  FTilePage.View := View;
+  FTilePage.Config.Assign(Config);
+  FTilePage.DoDisplay;
 end;
 
 { TKExtTilePanel }
 
-procedure TKExtTilePanel.DoDisplay;
+procedure TKExtTilePage.DoDisplay;
 var
   LTitle: string;
 begin
@@ -160,17 +162,17 @@ begin
   BuildTileBoxHtml;
 end;
 
-procedure TKExtTilePanel.DisplayPage;
+procedure TKExtTilePage.DisplayPage;
 begin
   BuildTileBoxHtml(TKTreeViewNode(ParamAsInteger('PageId')));
 end;
 
-procedure TKExtTilePanel.DisplayView;
+procedure TKExtTilePage.DisplayView;
 begin
   TKWebApplication.Current.DisplayView(TKView(ParamAsInteger('View')));
 end;
 
-function TKExtTilePanel.GetColors(const AColorSetName: string): TStringDynArray;
+function TKExtTilePage.GetColors(const AColorSetName: string): TStringDynArray;
 begin
   if SameText(AColorSetName, 'Metro') then
   begin
@@ -229,7 +231,7 @@ begin
   end;
 end;
 
-function TKExtTilePanel.GetNextTileColor: string;
+function TKExtTilePage.GetNextTileColor: string;
 begin
   Result := FColors[FColorIndex];
   Inc(FColorIndex);
@@ -237,17 +239,17 @@ begin
     FColorIndex := Low(FColors);
 end;
 
-function TKExtTilePanel.GetTileHeight: Integer;
+function TKExtTilePage.GetTileHeight: Integer;
 begin
   Result := Config.GetInteger('TileHeight', DEFAULT_TILE_HEIGHT);
 end;
 
-function TKExtTilePanel.GetTileWidth: Integer;
+function TKExtTilePage.GetTileWidth: Integer;
 begin
   Result := Config.GetInteger('TileWidth', DEFAULT_TILE_WIDTH);
 end;
 
-procedure TKExtTilePanel.AddTiles(const ANode: TKTreeViewNode; const ADisplayLabel: string);
+procedure TKExtTilePage.AddTiles(const ANode: TKTreeViewNode; const ADisplayLabel: string);
 var
   LOriginalNode: TKTreeViewNode;
 
@@ -307,7 +309,7 @@ begin
   FTileBoxHtml := FTileBoxHtml + '</div>';
 end;
 
-procedure TKExtTilePanel.AddBackTile;
+procedure TKExtTilePage.AddBackTile;
 var
   LClickCode: string;
 begin
@@ -319,23 +321,23 @@ begin
   FTileBoxHtml := FTileBoxHtml + Format(
     '<a href="#" onclick="%s"><div class="k-tile k-tile-back" style="background-color:%s;width:%dpx;height:%dpx">' +
     '<div class="k-tile-inner k-tile-back-inner">%s</div></div></a>',
-    [HTMLEncode(LClickCode), GetNextTileColor, GetTileWidth, GetTileHeight, _('Back')]);
+    [TNetEncoding.HTML.Encode(LClickCode), GetNextTileColor, GetTileWidth, GetTileHeight, _('Back')]);
 end;
 
-procedure TKExtTilePanel.AddBreak;
+procedure TKExtTilePage.AddBreak;
 begin
   FTileBoxHtml := FTileBoxHtml + '<br style="clear:left;" />';
 end;
 
-procedure TKExtTilePanel.AddTitle(const ADisplayLabel: string);
+procedure TKExtTilePage.AddTitle(const ADisplayLabel: string);
 begin
   if ADisplayLabel <> '' then
     FTileBoxHtml := FTileBoxHtml + Format(
       '<div class="k-tile-title-row">%s</div>',
-      [HTMLEncode(ADisplayLabel)]);
+      [TNetEncoding.HTML.Encode(ADisplayLabel)]);
 end;
 
-procedure TKExtTilePanel.AddTile(const ANode: TKTreeViewNode; const ADisplayLabel: string);
+procedure TKExtTilePage.AddTile(const ANode: TKTreeViewNode; const ADisplayLabel: string);
 var
   LClickCode: string;
 
@@ -349,7 +351,7 @@ var
     if ANode.GetBoolean('HideLabel', False) then
       Result := ''
     else
-      Result := HTMLEncode(ADisplayLabel);
+      Result := TNetEncoding.HTML.Encode(ADisplayLabel);
   end;
 
   function GetColor: string;
@@ -387,18 +389,18 @@ begin
     FTileBoxHtml := FTileBoxHtml + Format(
       '<a href="#" onclick="%s"><div class="k-tile" style="%s">' +
       '<div class="k-tile-inner">%s</div></div></a>',
-      [HTMLEncode(LClickCode), GetCSS, GetDisplayLabel]);
+      [TNetEncoding.HTML.Encode(LClickCode), GetCSS, GetDisplayLabel]);
   end
   else
   begin
     FTileBoxHtml := FTileBoxHtml + Format(
       '<a href="#" onclick="%s"><div class="k-tile" style="background-color:%s;width:%dpx;height:%dpx">' +
       '<div class="k-tile-inner">%s</div></div></a>',
-      [HTMLEncode(LClickCode), GetColor, GetTileWidth, GetTileHeight, GetDisplayLabel]);
+      [TNetEncoding.HTML.Encode(LClickCode), GetColor, GetTileWidth, GetTileHeight, GetDisplayLabel]);
   end;
 end;
 
-procedure TKExtTilePanel.BuildTileBoxHtml(const ARootNode: TKTreeViewNode);
+procedure TKExtTilePage.BuildTileBoxHtml(const ARootNode: TKTreeViewNode);
 var
   LTreeViewRenderer: TKExtTreeViewRenderer;
   LNode: TEFNode;
@@ -441,9 +443,9 @@ begin
 end;
 
 initialization
-  TKExtControllerRegistry.Instance.RegisterClass('TilePanel', TKExtTilePanelController);
+  TJSControllerRegistry.Instance.RegisterClass('TilePanel', TKExtTilePanelController);
 
 finalization
-  TKExtControllerRegistry.Instance.UnregisterClass('TilePanel');
+  TJSControllerRegistry.Instance.UnregisterClass('TilePanel');
 
 end.

@@ -4,7 +4,9 @@ interface
 
 uses
   Classes
+  , SysUtils
   , StrUtils
+  , Generics.Collections
   , Kitto.JS.Base
   , Kitto.JS
   , Kitto.JS.Types
@@ -15,9 +17,34 @@ type
   TExtObjectClass = TJSObjectClass;
   TExtExpression = TJSExpression;
 
+  TExtBase = class(TExtObject)
+  public
+    class function JSClassName: string; override;
+  end;
+
+  TExtEvented = class(TExtBase)
+  public
+    class function JSClassName: string; override;
+    function &On(const AEventName: string; const AHandler: TExtExpression;
+      const AScope: TExtObject = nil; const AOptions: TExtObject = nil): TExtExpression;
+    function FireEvent(const AEventName: string;
+      const AArgs: TArray<TExtObject>): TExtExpression;
+    function RemoveAllListeners(const AEventName: string): TExtExpression;
+  end;
+
+  TExtWidget = class(TExtEvented)
+  private
+    FCls: string;
+    procedure SetCls(const AValue: string);
+  public
+    class function JSClassName: string; override;
+
+    property Cls: string read FCls write SetCls;
+    procedure ToFront;
+  end;
+
   TExtEventObjectSingleton = class;
   TExtTemplate = class;
-  TExtQuickTipsSingleton = class;
   TExtElement = class;
   TExtAction = class;
   TExtSplitBar = class;
@@ -57,16 +84,7 @@ type
   TExtMenuMenu = TExtContainer;
   TExtDataRecord = TExtObject;
 
-  TExtUtilObservable = class(TExtObject)
-  public
-    class function JSClassName: string; override;
-    function FireEvent(const AEventName: string; const AArgs: TArray<TExtObject>): TExtExpression;
-    function &On(const AEventName: string; const AHandler: TExtExpression;
-      const AScope: TExtObject = nil; const AOptions: TExtObject = nil): TExtExpression;
-    function RemoveAllListeners(const AEventName: string): TExtExpression;
-  end;
-
-  TExtDataStore = TExtUtilObservable;
+  TExtDataStore = TExtBase;
 
   TExtEventObjectSingleton = class(TExtObject)
   end;
@@ -74,14 +92,6 @@ type
   TExtTemplate = class(TExtObject)
   public
     class function JSClassName: string; override;
-  end;
-
-  TExtQuickTipsSingleton = class(TExtObject)
-  public
-    class function JSClassName: string; override;
-    function Disable: TExtExpression;
-    function Enable: TExtExpression;
-    function Init(const AAutoRender: Boolean): TExtExpression;
   end;
 
   TExtElement = class(TExtObject)
@@ -109,15 +119,15 @@ type
     class function JSClassName: string; override;
   end;
 
-  TExtSplitBar = class(TExtUtilObservable)
+  TExtSplitBar = class(TExtBase)
   public
     class function JSClassName: string; override;
   end;
 
   // Procedural types for events TExtComponent
-  TExtComponentAfterRender = procedure(AThis: TExtComponent) of object;
+  TExtComponentAfterRender = reference to procedure(const AThis: TExtComponent);
 
-  TExtComponent = class(TExtUtilObservable)
+  TExtComponent = class(TExtWidget)
   private
     FMinSize: Integer;
     FItemId: string;
@@ -125,7 +135,6 @@ type
     FCollapseMode: string;
     FPlugins: TJSObjectArray;
     FLoader: TExtObject;
-    FCls: string;
     FOverCls: string;
     FHtml: string;
     FMaxWidth: Integer;
@@ -136,7 +145,7 @@ type
     FMinWidth: Integer;
     FSplit: Boolean;
     FFieldLabel: string;
-    FAfterRender: TExtComponentAfterRender;
+    FAfterRenderHandlers: TList<TExtComponentAfterRender>;
     FMaxSize: Integer;
     FItemCls: string;
     FDisabled: Boolean;
@@ -144,6 +153,11 @@ type
     FTpl: string;
     FFlex: Integer;
     FRenderTo: string;
+    FRenderToExpression: TExtExpression;
+    FFloating: Boolean;
+    FDraggable: Boolean;
+    FPluginsString: string;
+    FBodyPadding: string;
     procedure _SetDisabled(const AValue: Boolean);
     procedure SetFieldLabel(const AValue: string);
     procedure SetHidden(const AValue: Boolean);
@@ -163,29 +177,44 @@ type
     procedure SetMinSize(const AValue: Integer);
     procedure SetMaxSize(const AValue: Integer);
     procedure SetPadding(const AValue: string);
-    procedure SetCls(const AValue: string);
     procedure SetAfterRender(const AValue: TExtComponentAfterRender);
     function GetLoader: TExtObject;
     function GetPlugins: TJSObjectArray;
     procedure SetFlex(const AValue: Integer);
     procedure SetRenderTo(const AValue: string);
+    procedure SetFloating(const AValue: Boolean);
+    procedure SetDraggable(const AValue: Boolean);
+    procedure SetRenderToExpression(const AValue: TExtExpression);
+    procedure SetPluginsString(const AValue: string);
+    procedure SetBodyPadding(const AValue: string);
+    function GetAfterRender: TExtComponentAfterRender;
   protected
     procedure InitDefaults; override;
   public
-    procedure DoHandleEvent(const AEvtName: string); override;
+    procedure DoHandleEvent(const AEventName: string); override;
     class function JSClassName: string; override;
     function AddCls(const AClsName: string): TExtExpression;
+    function Disable: TExtExpression;
+    function Enable: TExtExpression;
     function Focus(const ASelectText: Boolean = False; const ADelay: Boolean = False): TExtExpression; overload;
     function Focus(const ASelectText: Boolean; const ADelay: Integer): TExtExpression; overload;
     function Hide: TExtExpression;
     function SetDisabled(const AValue: Boolean): TExtExpression;
     function SetVisible(const AValue: Boolean): TExtExpression;
-    function Show: TExtExpression;
-    property Cls: string read FCls write SetCls;
+    function Show(const AAnimateTarget: string = ''): TExtExpression; overload;
+    function Show(const AAnimateTarget: TExtExpression): TExtExpression; overload;
+    // Kitto specific.
+    function ShowFloating(const AIsModal: Boolean): TExtExpression;
+    // Kitto specific.
+    function UpdateHostWindowTitle(const ATitle: string): TExtExpression;
+    destructor Destroy; override;
+    property BodyPadding: string read FBodyPadding write SetBodyPadding;
     property CollapseMode: string read FCollapseMode write SetCollapseMode;
     property Disabled: Boolean read FDisabled write _SetDisabled;
+    property Draggable: Boolean read FDraggable write SetDraggable;
     property FieldLabel: string read FFieldLabel write SetFieldLabel;
     property Flex: Integer read FFlex write SetFlex;
+    property Floating: Boolean read FFloating write SetFloating;
     property Hidden: Boolean read FHidden write SetHidden;
     property Html: string read FHtml write SetHtml;
     property Id: string read FId write SetId;
@@ -201,11 +230,14 @@ type
     property OverCls: string read FOverCls write SetOverCls;
     property Padding: string read FPadding write SetPadding;
     property Plugins: TJSObjectArray read GetPlugins;
-    property renderTo: string read FRenderTo write SetRenderTo;
+    property PluginsString: string read FPluginsString write SetPluginsString;
+    property RenderTo: string read FRenderTo write SetRenderTo;
+    property RenderToExpression: TExtExpression read FRenderToExpression write SetRenderToExpression;
     property Style: string read FStyle write SetStyle;
     property Split: Boolean read FSplit write SetSplit;
     property Tpl: string read FTpl write SetTpl;
-    property AfterRender: TExtComponentAfterRender read FAfterRender write SetAfterRender;
+    property AfterRender: TExtComponentAfterRender read GetAfterRender write SetAfterRender;
+    procedure AddAfterRenderHandler(const AHandler: TExtComponentAfterRender);
   end;
 
   TExtLayer = class(TExtElement)
@@ -254,9 +286,6 @@ type
     property MinDate: TDateTime read FMinDate write _SetMinDate;
   end;
 
-  // Enumerated types for properties
-  TExtBoxComponentRegion = (rgCenter, rgNorth, rgEast, rgSouth, rgWest);
-
   TExtBoxComponent = class(TExtComponent)
   private
     FAutoHeight: Boolean;
@@ -268,23 +297,25 @@ type
     FAnchor: string;
     FAutoWidth: Boolean;
     FHeightString: string;
-    FRegion: TExtBoxComponentRegion;
+    FRegion: string;
     FHeight: Integer;
     FWidthExpression: TExtExpression;
     FOwnerCt: TExtContainer;
+    FResizable: Boolean;
     procedure SetAnchor(const AValue: string);
     procedure SetAutoHeight(const AValue: Boolean);
     procedure _SetAutoScroll(const AValue: Boolean);
     procedure SetAutoWidth(const AValue: Boolean);
     procedure SetHeight(const AValue: Integer);
     procedure SetMargins(AValue: string);
-    procedure SetRegion(const AValue: TExtBoxComponentRegion);
+    procedure SetRegion(const AValue: string);
     procedure SetWidth(const AValue: Integer);
     procedure SetHeightString(const AValue: string);
     procedure SetWidthString(const AValue: string);
     procedure SetWidthExpression(const AValue: TExtExpression);
     procedure SetHeightFunc(const AValue: TExtExpression);
     procedure SetOwnerCt(const AValue: TExtContainer);
+    procedure SetResizable(const AValue: Boolean);
   public
     class function JSClassName: string; override;
     property Anchor: string read FAnchor write SetAnchor;
@@ -296,7 +327,8 @@ type
     property HeightFunc: TExtExpression read FHeightFunc write SetHeightFunc;
     property Margins: string read FMargins write SetMargins;
     property OwnerCt: TExtContainer read FOwnerCt write SetOwnerCt;
-    property Region: TExtBoxComponentRegion read FRegion write SetRegion;
+    property Region: string read FRegion write SetRegion;
+    property Resizable: Boolean read FResizable write SetResizable;
     property Width: Integer read FWidth write SetWidth;
     property WidthString: string read FWidthString write SetWidthString;
     property WidthExpression: TExtExpression read FWidthExpression write SetWidthExpression;
@@ -319,12 +351,6 @@ type
     class function JSClassName: string; override;
   end;
 
-  // Enumerated types for properties
-  TExtContainerLayout = (lyAuto, lyAbsolute, lyAccordion, lyAnchor, lyBody,
-    lyBorder, lyBoundlist, lyBox, lyCard, lyCenter, lyCheckboxgroup,
-    lyColumn, lyColumncomponent, lyContainer, lyDashboard, lyDock, lyEditor,
-    lyFieldContainer, lyFieldset, lyFit, lyForm, lyGridcolumn, lyHbox,
-    lyResponsivecolumn, lySegmentedbutton, lyTable, lyTableview, lyVbox);
   TExtContainerLabelAlign = (laLeft, laRight, laTop);
 
   TExtContainer = class(TExtBoxComponent, IJSContainer)
@@ -334,25 +360,24 @@ type
     FAutoDestroy: Boolean; // true
     FDefaults: TExtObject;
     FItems: TJSObjectArray;
-    FLayout: TExtContainerLayout;
     FLayoutConfig: TExtObject;
-    FLayoutString: string;
+    FLayout: string;
     FColumnWidth: Double;
     FLabelWidth: Integer;
     FLabelAlign: TExtContainerLabelAlign;
     FHideLabels: Boolean;
     procedure SetActiveItem(const AValue: string);
     procedure SetActiveItemNumber(const AValue: Integer);
-    procedure SetLayout(const AValue: TExtContainerLayout);
     procedure SetColumnWidth(const AValue: Double);
     procedure SetLabelWidth(const AValue: Integer);
     procedure SetLabelAlign(const AValue: TExtContainerLabelAlign);
-    procedure SetLayoutString(const AValue: string);
+    procedure SetLayout(const AValue: string);
     procedure SetHideLabels(const AValue: Boolean);
     function GetDefaults: TExtObject;
     function GetLayoutConfig: TExtObject;
   protected
     procedure InitDefaults; override;
+    procedure RemoveChild(const AChild: TJSBase); override;
   public
     class function JSClassName: string; override;
     function UpdateLayout(const AShallow: Boolean; const AForce: Boolean): TExtExpression; overload;
@@ -365,13 +390,14 @@ type
     property Items: TJSObjectArray read FItems;
     property LabelAlign: TExtContainerLabelAlign read FLabelAlign write SetLabelAlign;
     property LabelWidth: Integer read FLabelWidth write SetLabelWidth;
-    property Layout: TExtContainerLayout read FLayout write SetLayout;
     property LayoutConfig: TExtObject read GetLayoutConfig;
-    property LayoutString: string read FLayoutString write SetLayoutString;
+    property Layout: string read FLayout write SetLayout;
     property ColumnWidth: Double read FColumnWidth write SetColumnWidth;
     // IJSContainer
     function AsJSObject: TJSObject;
-    procedure AddItem(const AItem: TJSObject); overload;
+    procedure AddItem(const AItem: TJSObject); overload; virtual;
+    // Calls the specified proc once for each of the Items.
+    procedure Apply(const AProc: TProc<TExtObject>);
   end;
 
   TExtButton = class(TExtBoxComponent)
@@ -385,7 +411,7 @@ type
     FHidden: Boolean;
     FIcon: string;
     FIconCls: string;
-    FMenu: TExtUtilObservable;
+    FMenu: TExtBase;
     FMinWidth: Integer;
     FPressed: Boolean;
     FScale: string;
@@ -403,7 +429,7 @@ type
     procedure SetHidden(const AValue: Boolean);
     procedure _SetIcon(const AValue: string);
     procedure SetIconCls(const AValue: string);
-    procedure SetMenu(AValue: TExtUtilObservable);
+    procedure SetMenu(AValue: TExtBase);
     procedure SetPressed(const AValue: Boolean);
     procedure SetScale(const AValue: string);
     procedure _SetText(const AValue: string);
@@ -436,7 +462,7 @@ type
     property Hidden: Boolean read FHidden write SetHidden;
     property Icon: string read FIcon write _SetIcon;
     property IconCls: string read FIconCls write SetIconCls;
-    property Menu: TExtUtilObservable read FMenu write SetMenu;
+    property Menu: TExtBase read FMenu write SetMenu;
     property MinWidth: Integer read FMinWidth write SetMinWidth;
     property Pressed: Boolean read FPressed write SetPressed;
     property Scale: string read FScale write SetScale;
@@ -501,7 +527,6 @@ type
     FTbar: TExtObject;
     FAutoLoadString: string;
     FAutoLoad: TExtObject;
-    FPaddingString: string;
     FHeader: Boolean;
     FCollapsed: Boolean;
     FCollapsible: Boolean;
@@ -527,7 +552,6 @@ type
     procedure SetFrame(const AValue: Boolean);
     procedure SetHeader(const AValue: Boolean);
     procedure SetIconCls(const AValue: string);
-    procedure SetPaddingString(const AValue: string);
     procedure _SetTitle(AValue: string);
     procedure SetCollapsed(const AValue: Boolean);
     procedure SetTbar(const AValue: TExtObject);
@@ -540,6 +564,7 @@ type
   public
     class function JSClassName: string; override;
     class function JSXType: string; override;
+    function Close: TExtExpression;
     function Collapse(const AAnimate: Boolean): TExtExpression;
     function Expand(const AAnimate: Boolean): TExtExpression;
     function SetTitle(const ATitle: string; const AIconCls: string = ''): TExtExpression;
@@ -559,7 +584,6 @@ type
     property Header: Boolean read FHeader write SetHeader;
     property IconCls: string read FIconCls write SetIconCls;
     property MinButtonWidth: Integer read FMinButtonWidth write SetMinButtonWidth;
-    property PaddingString: string read FPaddingString write SetPaddingString;
     property Tbar: TExtObject read FTbar write SetTbar;
     property Title: string read FTitle write _SetTitle;
   end;
@@ -638,26 +662,20 @@ type
     FBaseCls: string; // 'x-window'
     FClosable: Boolean; // true
     FConstrain: Boolean;
-    FDraggable: Boolean; // true
     FExpandOnShow: Boolean; // true
     FInitHidden: Boolean; // true
     FMaximizable: Boolean;
     FMaximized: Boolean;
     FMinHeight: Integer; // 100
     FMinWidth: Integer; // 200
-    FModal: Boolean;
     FPlain: Boolean;
-    FResizable: Boolean; // true
     FResizeHandles: string; // 'all'
     procedure _SetAnimateTarget(const AValue: string);
     procedure SetClosable(const AValue: Boolean);
     procedure SetConstrain(const AValue: Boolean);
-    procedure SetDraggable(const AValue: Boolean);
     procedure SetMaximizable(const AValue: Boolean);
     procedure SetMaximized(const AValue: Boolean);
-    procedure SetModal(const AValue: Boolean);
     procedure SetPlain(const AValue: Boolean);
-    procedure SetResizable(const AValue: Boolean);
     procedure SetResizeHandles(const AValue: string);
   protected
     procedure InitDefaults; override;
@@ -673,30 +691,25 @@ type
     property AnimateTarget: string read FAnimateTarget write _SetAnimateTarget;
     property Closable: Boolean read FClosable write SetClosable;
     property Constrain: Boolean read FConstrain write SetConstrain;
-    property Draggable: Boolean read FDraggable write SetDraggable;
     property Maximizable: Boolean read FMaximizable write SetMaximizable;
     property Maximized: Boolean read FMaximized write SetMaximized;
-    property Modal: Boolean read FModal write SetModal;
     property Plain: Boolean read FPlain write SetPlain;
-    property Resizable: Boolean read FResizable write SetResizable;
     property ResizeHandles: string read FResizeHandles write SetResizeHandles;
   end;
 
   // Procedural types for events TExtTabPanel
-  TExtTabPanelOnTabChange = procedure(ATabPanel: TExtTabPanel; ANewTab, AOldTab: TExtComponent) of object;
+  TExtTabPanelOnTabChange = procedure(ATabPanel: TExtTabPanel; ANewTab: TExtComponent) of object;
 
   TExtTabPanel = class(TExtPanel)
   private
     FOnTabChange: TExtTabPanelOnTabChange;
     FLayoutOnTabChange: Boolean;
-    FEnableTabScroll: Boolean;
     FActiveTab: string;
     FDeferredRender: Boolean;
     FActiveTabNumber: Integer;
     procedure _SetActiveTab(const AValue: string);
     procedure SetActiveTabNumber(const AValue: Integer);
     procedure SetDeferredRender(const AValue: Boolean);
-    procedure SetEnableTabScroll(const AValue: Boolean);
     procedure SetLayoutOnTabChange(const AValue: Boolean);
     procedure SetOnTabChange(const AValue: TExtTabPanelOnTabchange);
   protected
@@ -711,7 +724,6 @@ type
     property ActiveTab: string read FActiveTab write _SetActiveTab;
     property ActiveTabNumber: Integer read FActiveTabNumber write SetActiveTabNumber;
     property DeferredRender: Boolean read FDeferredRender write SetDeferredRender;
-    property EnableTabScroll: Boolean read FEnableTabScroll write SetEnableTabScroll;
     property LayoutOnTabChange: Boolean read FLayoutOnTabChange
       write SetLayoutOnTabChange;
     property OnTabchange: TExtTabPanelOnTabchange read FOnTabChange write SetOnTabChange;
@@ -760,27 +772,17 @@ type
       const AFn: TExtExpression = nil; const AScope: TExtObject = nil): TExtExpression;
   end;
 
-function ExtQuickTips: TExtQuickTipsSingleton;
 function ExtMessageBox: TExtMessageBoxSingleton;
 function LabelAlignAsOption(const AValue: TExtContainerLabelAlign): string;
 
 implementation
 
 uses
-  SysUtils
-  , KItto.JS.Formatting
+  Kitto.JS.Formatting
   , Kitto.Web.Response
   , Kitto.Web.Application
   , Kitto.Web.Session
   ;
-
-function ExtQuickTips: TExtQuickTipsSingleton;
-begin
-  if TKWebSession.Current <> nil then
-    Result := TKWebSession.Current.ObjectSpace.GetSingleton<TExtQuickTipsSingleton>(TExtQuickTipsSingleton.JSClassName)
-  else
-    Result := nil;
-end;
 
 function ExtMessageBox: TExtMessageBoxSingleton;
 begin
@@ -799,62 +801,14 @@ begin
   end;
 end;
 
-class function TExtUtilObservable.JSClassName: string;
+class function TExtBase.JSClassName: string;
 begin
-  Result := 'Ext.util.Observable';
-end;
-
-function TExtUtilObservable.FireEvent(const AEventName: string; const AArgs: TArray<TExtObject>): TExtExpression;
-var
-  LMethod: TJSMethodCall;
-  LObject: TExtObject;
-begin
-  LMethod := TKWebResponse.Current.Items.CallMethod(Self, 'fireEvent').AddParam(AEventName);
-  for LObject in AArgs do
-    LMethod.AddParam(LObject);
-  Result := LMethod.AsExpression;
-end;
-
-function TExtUtilObservable.&On(const AEventName: string; const AHandler: TExtExpression;
-  const AScope: TExtObject; const AOptions: TExtObject): TExtExpression;
-begin
-  Result := TKWebResponse.Current.Items.CallMethod(Self, 'on')
-    .AddParam(AEventName)
-    .AddParam(AHandler)
-    .AddParam(AScope)
-    .AddParam(AOptions)
-    .AsExpression;
-end;
-
-function TExtUtilObservable.RemoveAllListeners(const AEventName: string): TExtExpression;
-begin
-  Result := TKWebResponse.Current.Items.ExecuteJSCode(Self, Format('if (%s.events.%s) delete (%s.events.%s)',
-    [JSName, AEventName, JSName, AEventName])).AsExpression;
+  Result := 'Ext.Base';
 end;
 
 class function TExtTemplate.JSClassName: string;
 begin
   Result := 'Ext.Template';
-end;
-
-class function TExtQuickTipsSingleton.JSClassName: string;
-begin
-  Result := 'Ext.QuickTips';
-end;
-
-function TExtQuickTipsSingleton.Disable: TExtExpression;
-begin
-  Result := TKWebResponse.Current.Items.CallMethod(Self, 'disable').AsExpression;
-end;
-
-function TExtQuickTipsSingleton.Enable: TExtExpression;
-begin
-  Result := TKWebResponse.Current.Items.CallMethod(Self, 'enable').AsExpression;
-end;
-
-function TExtQuickTipsSingleton.Init(const AAutoRender: Boolean): TExtExpression;
-begin
-  Result := TKWebResponse.Current.Items.CallMethod(Self, 'init').AddParam(AAutoRender).AsExpression;
 end;
 
 class function TExtElement.JSClassName: string;
@@ -923,6 +877,11 @@ begin
   FFlex := SetConfigItem('flex', AValue);
 end;
 
+procedure TExtComponent.SetFloating(const AValue: Boolean);
+begin
+  FFloating := SetConfigItem('floating', AValue);
+end;
+
 procedure TExtComponent.SetHidden(const AValue: Boolean);
 begin
   FHidden := SetConfigItem('hidden', 'setHidden', AValue);
@@ -968,9 +927,19 @@ begin
   FPadding := SetConfigItem('padding', AValue);
 end;
 
+procedure TExtComponent.SetPluginsString(const AValue: string);
+begin
+  FPluginsString := SetConfigItem('plugins', AValue);
+end;
+
 procedure TExtComponent.SetRenderTo(const AValue: string);
 begin
   FRenderTo := SetConfigItem('renderTo', AValue);
+end;
+
+procedure TExtComponent.SetRenderToExpression(const AValue: TExtExpression);
+begin
+  FRenderToExpression := SetConfigItem('renderTo', AValue);
 end;
 
 procedure TExtComponent.SetStyle(const AValue: string);
@@ -989,11 +958,6 @@ begin
   SetConfigItem('split', AValue);
 end;
 
-procedure TExtComponent.SetCls(const AValue: string);
-begin
-  FCls := SetConfigItem('cls', AValue);
-end;
-
 procedure TExtComponent.SetCollapseMode(const AValue: string);
 begin
   FCollapseMode := AValue;
@@ -1008,20 +972,17 @@ end;
 
 procedure TExtComponent.SetMaxWidth(const AValue: Integer);
 begin
-  FMaxWidth := AValue;
-  SetConfigItem('maxWidth', AValue);
+  FMaxWidth := SetConfigItem('maxWidth', AValue);
 end;
 
 procedure TExtComponent.SetMinSize(const AValue: Integer);
 begin
-  FMinSize := AValue;
-  SetConfigItem('minSize', AValue);
+  FMinSize := SetConfigItem('minSize', AValue);
 end;
 
 procedure TExtComponent.SetMaxSize(const AValue: Integer);
 begin
-  FMaxSize := AValue;
-  SetConfigItem('maxSize', AValue);
+  FMaxSize := SetConfigItem('maxSize', AValue);
 end;
 
 class function TExtComponent.JSClassName: string;
@@ -1033,6 +994,20 @@ procedure TExtComponent.InitDefaults;
 begin
   inherited;
   FLabelSeparator := ':';
+  FAfterRenderHandlers := TList<TExtComponentAfterRender>.Create;
+end;
+
+procedure TExtComponent.AddAfterRenderHandler(const AHandler: TExtComponentAfterRender);
+begin
+  if Assigned(AHandler) then
+  begin
+    &On('afterrender', TKWebResponse.Current.Items.AjaxCallMethod(Self, 'afterrender')
+      .Event
+      .AddRawParam('This', 'sender.nm')
+      .FunctionArgs('sender')
+      .AsFunction);
+    FAfterRenderHandlers.Add(AHandler);
+  end;
 end;
 
 function TExtComponent.AddCls(const AClsName: string): TExtExpression;
@@ -1054,6 +1029,14 @@ begin
     .AddParam(ASelectText)
     .AddParam(ADelay)
     .AsExpression;
+end;
+
+function TExtComponent.GetAfterRender: TExtComponentAfterRender;
+begin
+  if FAfterRenderHandlers.Count > 0 then
+    Result := FAfterRenderHandlers[0]
+  else
+    Result := nil;
 end;
 
 function TExtComponent.GetLoader: TExtObject;
@@ -1082,6 +1065,11 @@ begin
     .AsExpression;
 end;
 
+procedure TExtComponent.SetDraggable(const AValue: Boolean);
+begin
+  FDraggable := SetConfigItem('draggable', AValue);
+end;
+
 function TExtComponent.SetVisible(const AValue: Boolean): TExtExpression;
 begin
   Result := TKWebResponse.Current.Items.CallMethod(Self, 'setVisible')
@@ -1089,28 +1077,68 @@ begin
     .AsExpression;
 end;
 
-function TExtComponent.Show: TExtExpression;
+function TExtComponent.Show(const AAnimateTarget: TExtExpression): TExtExpression;
 begin
-  Result := TKWebResponse.Current.Items.CallMethod(Self, 'show').AsExpression;
+  Result := TKWebResponse.Current.Items.CallMethod(Self, 'show')
+    .AddParam(AAnimateTarget)
+    .AsExpression;
+end;
+
+function TExtComponent.ShowFloating(const AIsModal: Boolean): TExtExpression;
+begin
+  Result := TKWebResponse.Current.Items.CallMethod(Self, 'showFloating')
+    .AddParam(AIsModal)
+    .AsExpression;
+end;
+
+function TExtComponent.UpdateHostWindowTitle(const ATitle: string): TExtExpression;
+begin
+  Result := TKWebResponse.Current.Items.CallMethod(Self, 'updateHostWindowTitle')
+    .AddParam(ATitle)
+    .AsExpression;
+end;
+
+function TExtComponent.Show(const AAnimateTarget: string = ''): TExtExpression;
+begin
+  Result := TKWebResponse.Current.Items.CallMethod(Self, 'show').AddParam(AAnimateTarget).AsExpression;
 end;
 
 procedure TExtComponent.SetAfterRender(const AValue: TExtComponentAfterRender);
 begin
   RemoveAllListeners('afterrender');
-  if Assigned(AValue) then
-    &On('afterrender', TKWebResponse.Current.Items.AjaxCallMethod(Self, 'afterrender')
-      .Event
-      .AddRawParam('This', 'sender.nm')
-      .FunctionArgs('sender')
-      .AsFunction);
-  FAfterRender := AValue;
+  FAfterRenderHandlers.Clear;
+  AddAfterRenderHandler(AValue);
 end;
 
-procedure TExtComponent.DoHandleEvent(const AEvtName: string);
+procedure TExtComponent.SetBodyPadding(const AValue: string);
+begin
+  FPadding := SetConfigItem('bodyPadding', AValue);
+end;
+
+destructor TExtComponent.Destroy;
+begin
+  FreeAndNil(FAfterRenderHandlers);
+  inherited;
+end;
+
+function TExtComponent.Disable: TExtExpression;
+begin
+  Result := TKWebResponse.Current.Items.CallMethod(Self, 'disable').AsExpression;
+end;
+
+procedure TExtComponent.DoHandleEvent(const AEventName: string);
+var
+  LHandler: TExtComponentAfterRender;
 begin
   inherited;
-  if (AEvtName = 'afterrender') and Assigned(FAfterRender) then
-    FAfterRender(TExtComponent(ParamAsObject('This')));
+  if (AEventName = 'afterrender') and (FAfterRenderHandlers.Count > 0) then
+    for LHandler in FAfterRenderHandlers do
+      LHandler(TExtComponent(ParamAsObject('This')));
+end;
+
+function TExtComponent.Enable: TExtExpression;
+begin
+  Result := TKWebResponse.Current.Items.CallMethod(Self, 'enable').AsExpression;
 end;
 
 procedure TExtLayer._SetZindex(const AValue: Integer);
@@ -1243,10 +1271,15 @@ begin
   FOwnerCt := TExtContainer(SetConfigItem('ownerCt', AValue));
 end;
 
-procedure TExtBoxComponent.SetRegion(const AValue: TExtBoxComponentRegion);
+procedure TExtBoxComponent.SetRegion(const AValue: string);
 begin
   FRegion := AValue;
-  SetConfigItem('region', TJS.EnumToJSString(TypeInfo(TExtBoxComponentRegion), Ord(AValue)));
+  SetConfigItem('region', AValue);
+end;
+
+procedure TExtBoxComponent.SetResizable(const AValue: Boolean);
+begin
+  FResizable := SetConfigItem('resizable', 'setResizable', AValue);
 end;
 
 procedure TExtBoxComponent.SetWidth(const AValue: Integer);
@@ -1311,15 +1344,9 @@ begin
   Defaults.SetConfigItem('labelWidth', AValue);
 end;
 
-procedure TExtContainer.SetLayout(const AValue: TExtContainerLayout);
+procedure TExtContainer.SetLayout(const AValue: string);
 begin
-  FLayout := AValue;
-  SetConfigItem('layout', TJS.EnumToJSString(TypeInfo(TExtContainerLayout), Ord(AValue)));
-end;
-
-procedure TExtContainer.SetLayoutString(const AValue: string);
-begin
-  FLayoutString := SetConfigItem('layout', AValue);
+  FLayout := SetConfigItem('layout', AValue);
 end;
 
 procedure TExtContainer.SetColumnWidth(const AValue: Double);
@@ -1389,6 +1416,29 @@ begin
     .AsExpression;
 end;
 
+procedure TExtContainer.RemoveChild(const AChild: TJSBase);
+begin
+  inherited;
+  if AChild is TJSObject then
+    Items.Remove(TJSObject(AChild));
+end;
+
+procedure TExtContainer.Apply(const AProc: TProc<TExtObject>);
+var
+  I: Integer;
+begin
+  Assert(Assigned(AProc));
+
+  for I := 0 to Items.Count - 1 do
+  begin
+    AProc(Items[I]);
+    if Items[I] is TExtContainer then
+      TExtContainer(Items[I]).Apply(AProc);
+  end;
+end;
+
+{ TExtButton }
+
 procedure TExtButton.SetAllowDepress(const AValue: Boolean);
 begin
   FAllowDepress := SetConfigItem('allowDepress', AValue);
@@ -1434,10 +1484,10 @@ begin
   FIconCls := SetConfigItem('iconCls', AValue);
 end;
 
-procedure TExtButton.SetMenu(AValue: TExtUtilObservable);
+procedure TExtButton.SetMenu(AValue: TExtBase);
 begin
   FMenu.Free;
-  FMenu := TExtUtilObservable(SetConfigItem('menu', AValue));
+  FMenu := TExtBase(SetConfigItem('menu', AValue));
 end;
 
 procedure TExtButton.SetMinWidth(const AValue: Integer);
@@ -1479,7 +1529,7 @@ procedure TExtButton.InitDefaults;
 begin
   inherited;
   FHandleMouseEvents := true;
-  FMenu := TExtUtilObservable.CreateInternal(Self, 'menu');
+  FMenu := TExtBase.CreateInternal(Self, 'menu');
   FTemplate := TExtTemplate.CreateInternal(Self, 'template');
   FBtnEl := TExtElement.CreateInternal(Self, 'btnEl');
 end;
@@ -1723,11 +1773,6 @@ begin
   FMinButtonWidth := SetConfigItem('minButtonWidth', AValue);
 end;
 
-procedure TExtPanel.SetPaddingString(const AValue: string);
-begin
-  FPaddingString := SetConfigItem('padding', AValue);
-end;
-
 procedure TExtPanel._SetTitle(AValue: string);
 begin
   FTitle := SetConfigItem('title', 'setTitle', AValue);
@@ -1757,6 +1802,12 @@ begin
   FFbar := CreateConfigObjectArray('fbar');
   FMinButtonWidth := 75;
   FHeader := true;
+end;
+
+function TExtPanel.Close: TExtExpression;
+begin
+  Result := TKWebResponse.Current.Items.CallMethod(Self, 'close')
+    .AsExpression;
 end;
 
 function TExtPanel.Collapse(const AAnimate: Boolean): TExtExpression;
@@ -1921,11 +1972,6 @@ begin
   FConstrain := SetConfigItem('constrain', AValue);
 end;
 
-procedure TExtWindow.SetDraggable(const AValue: Boolean);
-begin
-  FDraggable := SetConfigItem('draggable', AValue);
-end;
-
 procedure TExtWindow.SetMaximizable(const AValue: Boolean);
 begin
   FMaximizable := SetConfigItem('maximizable', AValue);
@@ -1936,19 +1982,9 @@ begin
   FMaximized := SetConfigItem('maximized', AValue);
 end;
 
-procedure TExtWindow.SetModal(const AValue: Boolean);
-begin
-  FModal := SetConfigItem('modal', AValue);
-end;
-
 procedure TExtWindow.SetPlain(const AValue: Boolean);
 begin
   FPlain := SetConfigItem('plain', AValue);
-end;
-
-procedure TExtWindow.SetResizable(const AValue: Boolean);
-begin
-  FResizable := SetConfigItem('resizable', AValue);
 end;
 
 procedure TExtWindow.SetResizeHandles(const AValue: string);
@@ -1967,12 +2003,10 @@ begin
   FAnimateTargetElement := TExtElement.CreateInternal(Self, 'animateTarget');
   FBaseCls := 'x-window';
   FClosable := true;
-  FDraggable := true;
   FExpandOnShow := true;
   FInitHidden := true;
   FMinHeight := 100;
   FMinWidth := 200;
-  FResizable := true;
   FResizeHandles := 'all';
   FBbar := CreateConfigObjectArray('bbar');
 end;
@@ -2025,11 +2059,6 @@ end;
 procedure TExtTabPanel.SetDeferredRender(const AValue: Boolean);
 begin
   FDeferredRender := SetConfigItem('deferredRender', AValue);
-end;
-
-procedure TExtTabPanel.SetEnableTabScroll(const AValue: Boolean);
-begin
-  FEnableTabScroll := SetConfigItem('enableTabScroll', AValue);
 end;
 
 procedure TExtTabPanel.SetLayoutOnTabChange(const AValue: Boolean);
@@ -2085,7 +2114,7 @@ procedure TExtTabPanel.DoHandleEvent(const AEvtName: string);
 begin
   inherited;
   if (AEvtName = 'tabchange') and Assigned(FOnTabChange) then
-    FOnTabChange(TExtTabPanel(ParamAsObject('TabPanel')), TExtComponent(ParamAsObject('NewTab')), TExtComponent(ParamAsObject('OldTab')));
+    FOnTabChange(TExtTabPanel(ParamAsObject('TabPanel')), TExtComponent(ParamAsObject('NewTab')));
 end;
 
 procedure TExtPagingToolbar.SetDisplayInfo(const AValue: Boolean);
@@ -2161,6 +2190,58 @@ end;
 procedure TExtToolTip.SetTrackMouse(const AValue: Boolean);
 begin
   FTrackMouse := SetConfigItem('trackMouse', AValue);
+end;
+
+{ TExtEvented }
+
+function TExtEvented.FireEvent(const AEventName: string; const AArgs: TArray<TExtObject>): TExtExpression;
+var
+  LMethod: TJSMethodCall;
+  LObject: TExtObject;
+begin
+  LMethod := TKWebResponse.Current.Items.CallMethod(Self, 'fireEvent').AddParam(AEventName);
+  for LObject in AArgs do
+    LMethod.AddParam(LObject);
+  Result := LMethod.AsExpression;
+end;
+
+function TExtEvented.&On(const AEventName: string; const AHandler: TExtExpression;
+  const AScope: TExtObject = nil; const AOptions: TExtObject = nil): TExtExpression;
+begin
+  Result := TKWebResponse.Current.Items.CallMethod(Self, 'on')
+    .AddParam(AEventName)
+    .AddParam(AHandler)
+    .AddParam(AScope)
+    .AddParam(AOptions)
+    .AsExpression;
+end;
+
+function TExtEvented.RemoveAllListeners(const AEventName: string): TExtExpression;
+begin
+  Result := TKWebResponse.Current.Items.ExecuteJSCode(Self, Format('if (%s.events.%s) delete (%s.events.%s)',
+    [JSName, AEventName, JSName, AEventName])).AsExpression;
+end;
+
+class function TExtEvented.JSClassName: string;
+begin
+  Result := 'Ext.Evented';
+end;
+
+{ TExtWidget }
+
+class function TExtWidget.JSClassName: string;
+begin
+  Result := 'Ext.Widget';
+end;
+
+procedure TExtWidget.SetCls(const AValue: string);
+begin
+  FCls := SetConfigItem('cls', 'setCls', AValue);
+end;
+
+procedure TExtWidget.ToFront;
+begin
+  TKWebResponse.Current.Items.CallMethod(Self, 'toFront');
 end;
 
 end.

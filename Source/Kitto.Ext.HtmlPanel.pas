@@ -21,12 +21,15 @@ unit Kitto.Ext.HtmlPanel;
 interface
 
 uses
-  Kitto.Ext.Base, Kitto.Ext.Controller;
+  Kitto.JS.Controller
+  , Kitto.Ext.Panel
+  ;
 
 type
   TKExtHtmlPanelController = class(TKExtPanelControllerBase)
   strict protected
     procedure DoDisplay; override;
+    function GetObjectNamePrefix: string; override;
   end;
 
 implementation
@@ -71,11 +74,16 @@ begin
   end
 end;
 
+function TKExtHtmlPanelController.GetObjectNamePrefix: string;
+begin
+  Result := 'html';
+end;
+
 initialization
-  TKExtControllerRegistry.Instance.RegisterClass('HtmlPanel', TKExtHtmlPanelController);
+  TJSControllerRegistry.Instance.RegisterClass('HtmlPanel', TKExtHtmlPanelController);
 
 finalization
-  TKExtControllerRegistry.Instance.UnregisterClass('HtmlPanel');
+  TJSControllerRegistry.Instance.UnregisterClass('HtmlPanel');
 
 end.
 

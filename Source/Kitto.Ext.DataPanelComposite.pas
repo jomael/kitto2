@@ -23,7 +23,7 @@ interface
 uses
   Kitto.JS
   , Kitto.Ext.DataPanel
-  , Kitto.Ext.Controller
+  , Kitto.JS.Controller
   ;
 
 type
@@ -46,9 +46,9 @@ type
 implementation
 
 uses
-  EF.StrUtils
+  SysUtils
+  , EF.StrUtils
   , Ext.Base
-  , Kitto.Ext.Base
   ;
 
 { TKExtDataPanelCompositeController }
@@ -58,9 +58,11 @@ begin
   inherited;
   Apply(
     procedure (AObject: TExtObject)
+    var
+      LActivable: IJSActivable;
     begin
-      if AObject is TKExtPanelBase then
-        TKExtPanelBase(AObject).Activate;
+      if Supports(AObject, IJSActivable, LActivable) then
+        LActivable.Activate;
     end);
 end;
 

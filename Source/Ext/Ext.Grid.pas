@@ -43,6 +43,7 @@ type
     FGroupName: string;
     FDisabled: Boolean;
     FDisabledCls: string;
+    FMenuDisabled: Boolean;
     procedure SetAlign(const AValue: TExtGridColumnAlign);
     procedure SetCss(const AValue: string);
     procedure SetDataIndex(const AValue: string);
@@ -62,6 +63,7 @@ type
     procedure SetWidthFunc(const AValue: TExtExpression);
     procedure SetDisabled(const AValue: Boolean);
     procedure SetDisabledCls(const AValue: string);
+    procedure SetMenuDisabled(const AValue: Boolean);
   protected
     procedure InitDefaults; override;
     function GetObjectNamePrefix: string; override;
@@ -87,6 +89,7 @@ type
     property Sortable: Boolean read FSortable write SetSortable;
     property Width: Integer read FWidth write SetWidth;
     property WidthFunc: TExtExpression read FWidthFunc write SetWidthFunc;
+    property MenuDisabled: Boolean read FMenuDisabled write SetMenuDisabled;
   end;
 
   TExtGridNumberColumn = class(TExtGridColumn)
@@ -101,7 +104,7 @@ type
     property Format: string read FFormat write SetFormat;
   end;
 
-  TExtViewTable = class(TExtUtilObservable)
+  TExtViewTable = class(TExtBase)
   private
     FAutoFill: Boolean;
     FForceFit: Boolean;
@@ -157,7 +160,7 @@ type
     class function JSXType: string; override;
   end;
 
-  TExtGridAbstractSelectionModel = class(TExtUtilObservable)
+  TExtGridAbstractSelectionModel = class(TExtEvented)
   private
     FStore: TExtDataStore;
     procedure SetStore(const AValue: TExtDataStore);
@@ -278,7 +281,7 @@ type
     property ViewConfig: TExtObject read FViewConfig;
   end;
 
-  TExtGridFeatureFeature = class(TExtUtilObservable)
+  TExtGridFeatureFeature = class(TExtBase)
   end;
 
   TExtGridGroupingFeature = class(TExtGridFeatureFeature)
@@ -417,6 +420,11 @@ end;
 procedure TExtGridColumn.SetHideable(const AValue: Boolean);
 begin
   FHideable := SetConfigItem('hideable', AValue);
+end;
+
+procedure TExtGridColumn.SetMenuDisabled(const AValue: Boolean);
+begin
+  FMenuDisabled := SetConfigItem('menuDisabled', AValue);
 end;
 
 procedure TExtGridColumn.SetRenderer(const AValue: string);
