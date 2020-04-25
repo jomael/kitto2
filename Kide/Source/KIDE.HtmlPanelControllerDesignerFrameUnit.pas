@@ -49,7 +49,7 @@ implementation
 
 uses
   EF.Macros,
-  Kitto.Ext.Controller, Kitto.Ext.Base, Kitto.Ext.HtmlPanel,
+  Kitto.Ext.Base, Kitto.Ext.HtmlPanel,
   KIDE.Utils;
 
 { TDownloadFileToolDesignerFrame }
@@ -84,6 +84,7 @@ initialization
   TEditNodeFrameRegistry.Instance.RegisterClass(THtmlPanelControllerDesignerFrame.GetClassId, THtmlPanelControllerDesignerFrame);
 
 finalization
-  TEditNodeFrameRegistry.Instance.UnregisterClass(THtmlPanelControllerDesignerFrame.GetClassId);
+  if Assigned(TEditNodeFrameRegistry.Instance) then
+    TEditNodeFrameRegistry.Instance.UnregisterClass(THtmlPanelControllerDesignerFrame.GetClassId);
 
 end.

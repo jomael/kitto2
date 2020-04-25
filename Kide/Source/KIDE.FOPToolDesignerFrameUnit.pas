@@ -42,7 +42,7 @@ implementation
 {$R *.dfm}
 
 uses
-  Kitto.Metadata.Views, Kitto.Ext.Controller;
+  Kitto.Metadata.Views;
 
 { TFOPToolDesignerFrame }
 
@@ -68,6 +68,7 @@ initialization
   TEditNodeFrameRegistry.Instance.RegisterClass(TFOPToolDesignerFrame.GetClassId, TFOPToolDesignerFrame);
 
 finalization
-  TEditNodeFrameRegistry.Instance.UnregisterClass(TFOPToolDesignerFrame.GetClassId);
+  if Assigned(TEditNodeFrameRegistry.Instance) then
+    TEditNodeFrameRegistry.Instance.UnregisterClass(TFOPToolDesignerFrame.GetClassId);
 
 end.

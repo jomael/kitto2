@@ -45,7 +45,7 @@ implementation
 uses
   EF.Macros,
   KIDE.Project, KIDE.Utils, KIDE.EditNodeBaseFrameUnit,
-  Kitto.Ext.Controller, Kitto.Ext.Base,
+  Kitto.Ext.Base,
   //View classes for this designer
   Kitto.Ext.DataTool;
 
@@ -79,9 +79,9 @@ begin
   inherited;
   LViewNode := EditNode;
   if EditNode is TEFNode then
-    LFrameClass := TEditNodeFrameFractory.Instance.GetEditNodeFrameClass(EditNode)
+    LFrameClass := TEditNodeFrameFactory.Instance.GetEditNodeFrameClass(EditNode)
   else
-    LFrameClass := TEditNodeFrameFractory.Instance.GetEditNodeFrameClass(EditNode);
+    LFrameClass := TEditNodeFrameFactory.Instance.GetEditNodeFrameClass(EditNode);
   if Assigned(LFrameClass) then
     EmbedEditNodeFrame(DesignPanel, LFrameClass, EditNode);
 end;

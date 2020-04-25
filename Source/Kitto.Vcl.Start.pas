@@ -22,12 +22,8 @@ interface
 
 type
   TKStart = class
-  private
-    class var FIsService: Boolean;
   public
     class procedure Start;
-
-    class property IsService: Boolean read FIsService;
   end;
 
 implementation
@@ -35,10 +31,13 @@ implementation
 uses
   SysUtils
   , Classes
+  , EF.Tree
   , EF.Logger
   , EF.Macros
   , Kitto.Config
+  , EF.Sys
   {$IFDEF MSWINDOWS}
+  , EF.Sys.Windows
   , Vcl.Forms
   , Vcl.SvcMgr
   , Vcl.Themes
@@ -55,10 +54,17 @@ class procedure TKStart.Start;
   procedure Configure;
   var
     LConfig: TKConfig;
+    LLogNode: TEFNode;
+    LCustomConfig: string;
   begin
+    LCustomConfig := GetCmdLineParamValue('c');
+    if LCustomConfig <> '' then
+      TKConfig.BaseConfigFileName := LCustomConfig;
     LConfig := TKConfig.Create;
     try
-      TEFLogger.Instance.Configure(LConfig.Config.FindNode('Log'), TEFMacroExpansionEngine.Instance);
+      LLogNode := LConfig.Config.FindNode('Log');
+      TEFLogger.Instance.Configure(LLogNode, TEFMacroExpansionEngine.Instance);
+      TEFLogger.Instance.Log(Format('Using configuration: %s',[LConfig.BaseConfigFileName]));
     finally
       FreeAndNil(LConfig);
     end;
@@ -66,31 +72,25 @@ class procedure TKStart.Start;
 
 begin
   Configure;
-
-  FIsService := not FindCmdLineSwitch('a');
-  if FIsService then
+  {$IFDEF MSWINDOWS}
+  if IsRunningAsService or IsInstallingService then
   begin
-    {$IFDEF MSWINDOWS}
     TEFLogger.Instance.Log('Starting as service.');
     if not Vcl.SvcMgr.Application.DelayInitialize or Vcl.SvcMgr.Application.Installing then
       Vcl.SvcMgr.Application.Initialize;
     Vcl.SvcMgr.Application.CreateForm(TKService, KService);
     Vcl.SvcMgr.Application.Run;
-    {$ELSE}
-    TEFLogger.Instance.Log('Services not yet supported on this platform.');
-    {$ENDIF}
   end
   else
   begin
-    {$IFDEF MSWINDOWS}
     TEFLogger.Instance.Log('Starting as application.');
     Vcl.Forms.Application.Initialize;
     Vcl.Forms.Application.CreateForm(TKMainForm, KMainForm);
     Vcl.Forms.Application.Run;
-    {$ELSE}
-    TEFLogger.Instance.Log('GUI applications not yet supported on this platform.');
-    {$ENDIF}
   end;
+  {$ELSE}
+  TEFLogger.Instance.Log('Start not yet supported on this platform.');
+  {$ENDIF}
 end;
 
 initialization

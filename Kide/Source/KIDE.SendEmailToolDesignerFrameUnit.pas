@@ -54,7 +54,7 @@ implementation
 
 uses
   KIDE.Project,
-  Kitto.Config, Kitto.Metadata.Views, Kitto.Ext.Controller,
+  Kitto.Config, Kitto.Metadata.Views,
   KIDE.SendEmailMessageNodeFrameUnit,
   KIDE.ConfigEmailSMTPServerNodeFrameUnit;
 
@@ -138,6 +138,7 @@ initialization
   TEditNodeFrameRegistry.Instance.RegisterClass(TSendEmailToolDesignerFrame.GetClassId, TSendEmailToolDesignerFrame);
 
 finalization
-  TEditNodeFrameRegistry.Instance.UnregisterClass(TSendEmailToolDesignerFrame.GetClassId);
+  if Assigned(TEditNodeFrameRegistry.Instance) then
+    TEditNodeFrameRegistry.Instance.UnregisterClass(TSendEmailToolDesignerFrame.GetClassId);
 
 end.

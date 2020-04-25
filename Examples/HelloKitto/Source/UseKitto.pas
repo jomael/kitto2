@@ -13,7 +13,7 @@ uses
   FireDAC.Phys.IBBase, FireDAC.Phys.FB, //FireDac support for Firebird
 {$ENDIF}
   // Kitto.AccessControl.DB,
-  //Kitto.Auth.DB,
+  Kitto.Auth.DB,
   // Kitto.Auth.DBServer,
   // Kitto.Auth.OSDB,
   // Kitto.Auth.TextFile,
@@ -21,7 +21,7 @@ uses
   Kitto.Ext.DebenuQuickPDFTools, //For PDF Merge
   Kitto.Ext.FOPTools, //For FOP Engine
   //Kitto.Ext.ReportBuilderTools, //Tool for Reportbuilder
-  Kitto.Localization.dxgettext,
+  // Kitto.Localization.dxgettext, //Commented to enable per-session localization
   Kitto.Ext.TilePanel,
   Kitto.Metadata.ModelImplementation,
   Kitto.Metadata.ViewBuilders,

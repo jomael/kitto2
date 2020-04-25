@@ -496,9 +496,17 @@ begin
 end;
 
 class constructor TKConfig.Create;
+var
+  LAppName: string;
+  LDefaultConfig: string;
 begin
+  LAppName := ChangeFileExt(ExtractFileName(ParamStr(0)),'');
   FConfigClass := TKConfig;
-  FBaseConfigFileName := 'Config.yaml';
+  LDefaultConfig := Format('Config_%s.yaml',[LAppName]);
+  if FileExists(GetMetadataPath + LDefaultConfig) then
+    FBaseConfigFileName := LDefaultConfig
+  else
+    FBaseConfigFileName := 'Config.yaml';
 
   FJSFormatSettings := TFormatSettings.Create;
   FJSFormatSettings.DecimalSeparator := '.';
@@ -616,7 +624,8 @@ begin
         Result := LExePath + '..\..\..\..\Kitto\Home\';
         if not DirectoryExists(Result) then
         begin
-          Result := ExpandEnvironmentVariables('%KITTO%\Home\');
+          Result := '%KITTO%\Home\';
+          ExpandEnvironmentVariables(Result);
           if not DirectoryExists(Result) then
             Result := GetAppHomePath;
         end;

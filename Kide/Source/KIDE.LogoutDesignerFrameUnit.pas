@@ -39,7 +39,7 @@ implementation
 {$R *.dfm}
 
 uses
-  Kitto.Metadata.Views, Kitto.Ext.Controller;
+  Kitto.Metadata.Views, Kitto.Ext.Login;
 
 { TDataToolDesignerFrame }
 
@@ -58,6 +58,7 @@ initialization
   TEditNodeFrameRegistry.Instance.RegisterClass(TLogoutDesignerFrame.GetClassId, TLogoutDesignerFrame);
 
 finalization
-  TEditNodeFrameRegistry.Instance.UnregisterClass(TLogoutDesignerFrame.GetClassId);
+  if Assigned(TEditNodeFrameRegistry.Instance) then
+    TEditNodeFrameRegistry.Instance.UnregisterClass(TLogoutDesignerFrame.GetClassId);
 
 end.

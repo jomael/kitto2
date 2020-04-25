@@ -59,7 +59,7 @@ implementation
 
 uses
   EF.Macros,
-  Kitto.Ext.Controller, Kitto.Ext.Base,
+  Kitto.Ext.Panel, Kitto.Ext.Base,
   Kitto.Ext.GridPanel;
 
 { TDownloadFileToolDesignerFrame }
@@ -124,6 +124,7 @@ initialization
   TEditNodeFrameRegistry.Instance.RegisterClass(TGridPanelControllerDesignerFrame.GetClassId, TGridPanelControllerDesignerFrame);
 
 finalization
-  TEditNodeFrameRegistry.Instance.UnregisterClass(TGridPanelControllerDesignerFrame.GetClassId);
+  if Assigned(TEditNodeFrameRegistry.Instance) then
+    TEditNodeFrameRegistry.Instance.UnregisterClass(TGridPanelControllerDesignerFrame.GetClassId);
 
 end.

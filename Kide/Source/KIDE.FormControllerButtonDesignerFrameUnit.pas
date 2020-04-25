@@ -48,7 +48,7 @@ implementation
 uses
   StrUtils,
   EF.Macros,
-  Kitto.Ext.Controller, Kitto.Ext.Base,
+  Kitto.Ext.Base,
   Kitto.Ext.Form,
   KIDE.Project, KIDE.Config, KIDE.ViewTableFormControllerDesignerFrameUnit;
 
@@ -95,6 +95,7 @@ initialization
   TEditNodeFrameRegistry.Instance.RegisterClass(TFormControllerButtonDesignerFrame.GetClassId, TFormControllerButtonDesignerFrame);
 
 finalization
-  TEditNodeFrameRegistry.Instance.UnregisterClass(TFormControllerButtonDesignerFrame.GetClassId);
+  if Assigned(TEditNodeFrameRegistry.Instance) then
+    TEditNodeFrameRegistry.Instance.UnregisterClass(TFormControllerButtonDesignerFrame.GetClassId);
 
 end.

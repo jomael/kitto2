@@ -50,7 +50,7 @@ implementation
 
 uses
   EF.Macros,
-  Kitto.Ext.Controller, Kitto.Ext.Base,
+  Kitto.Ext.Base,
   Kitto.Ext.DataPanel, Kitto.Ext.Form, Kitto.Ext.List;
 
 { TFormPanelControllerDesignerFrame }
@@ -94,6 +94,7 @@ initialization
   TEditNodeFrameRegistry.Instance.RegisterClass(TFormPanelControllerDesignerFrame.GetClassId, TFormPanelControllerDesignerFrame);
 
 finalization
-  TEditNodeFrameRegistry.Instance.UnregisterClass(TFormPanelControllerDesignerFrame.GetClassId);
+  if Assigned(TEditNodeFrameRegistry.Instance) then
+    TEditNodeFrameRegistry.Instance.UnregisterClass(TFormPanelControllerDesignerFrame.GetClassId);
 
 end.

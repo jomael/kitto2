@@ -46,7 +46,7 @@ implementation
 {$R *.dfm}
 
 uses
-  Kitto.Metadata.Views, Kitto.Ext.Controller;
+  Kitto.Metadata.Views;
 
 { TDataToolDesignerFrame }
 
@@ -79,6 +79,7 @@ initialization
   TEditNodeFrameRegistry.Instance.RegisterClass(TDataToolDesignerFrame.GetClassId, TDataToolDesignerFrame);
 
 finalization
-  TEditNodeFrameRegistry.Instance.UnregisterClass(TDataToolDesignerFrame.GetClassId);
+  if Assigned(TEditNodeFrameRegistry.Instance) then
+    TEditNodeFrameRegistry.Instance.UnregisterClass(TDataToolDesignerFrame.GetClassId);
 
 end.

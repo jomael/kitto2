@@ -44,7 +44,7 @@ implementation
 {$R *.dfm}
 
 uses
-  Kitto.Metadata.Views, Kitto.Ext.Controller;
+  Kitto.Metadata.Views;
 
 { TMergePDFToolDesignerFrame }
 
@@ -77,6 +77,7 @@ initialization
   TEditNodeFrameRegistry.Instance.RegisterClass(TMergePDFToolDesignerFrame.GetClassId, TMergePDFToolDesignerFrame);
 
 finalization
-  TEditNodeFrameRegistry.Instance.UnregisterClass(TMergePDFToolDesignerFrame.GetClassId);
+  if Assigned(TEditNodeFrameRegistry.Instance) then
+    TEditNodeFrameRegistry.Instance.UnregisterClass(TMergePDFToolDesignerFrame.GetClassId);
 
 end.

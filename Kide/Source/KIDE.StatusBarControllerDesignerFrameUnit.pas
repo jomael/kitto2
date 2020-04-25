@@ -43,7 +43,7 @@ implementation
 
 uses
   EF.Macros,
-  Kitto.Ext.Controller, Kitto.Ext.Base,
+  Kitto.Ext.Base,
   Kitto.Ext.StatusBar;
 
 { TDownloadFileToolDesignerFrame }
@@ -69,6 +69,7 @@ initialization
   TEditNodeFrameRegistry.Instance.RegisterClass(TStatusBarControllerDesignerFrame.GetClassId, TStatusBarControllerDesignerFrame);
 
 finalization
-  TEditNodeFrameRegistry.Instance.UnregisterClass(TStatusBarControllerDesignerFrame.GetClassId);
+  if Assigned(TEditNodeFrameRegistry.Instance) then
+    TEditNodeFrameRegistry.Instance.UnregisterClass(TStatusBarControllerDesignerFrame.GetClassId);
 
 end.

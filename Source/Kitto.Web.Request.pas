@@ -59,7 +59,10 @@ type
   public
     destructor Destroy; override;
   public
-    const HOME_DOCUMENT = 'home';
+    /// <summary>
+    ///  The name of the segment of the URL's path enclusing all method calls.
+    /// </summary>
+    const APP_NAMESPACE = 'app';
     class property Current: TKWebRequest read GetCurrent write SetCurrent;
     class procedure ClearCurrent;
 
@@ -133,6 +136,7 @@ implementation
 
 uses
   SysUtils
+  , StrUtils
   , JSON
   , NetEncoding
   , EF.JSON
@@ -289,7 +293,7 @@ end;
 
 function TKWebRequest.IsPageRefresh(const AURLDocument: string): Boolean;
 begin
-  Result := not IsAjax and ((AURLDocument = '') or SameText(AURLDocument, HOME_DOCUMENT));
+  Result := not IsAjax and MatchText(AURLDocument, ['', APP_NAMESPACE]);
 end;
 
 class procedure TKWebRequest.SetCurrent(const AValue: TKWebRequest);

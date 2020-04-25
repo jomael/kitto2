@@ -23,23 +23,31 @@ function kittoInit()
         width: this.width + 5,
         height: this.height + 5,
         header: true,
-        closable: true,//this.closable, // not working
+        closable: this.closable,
         onEsc: Ext.emptyFn,
         resizable: true,
         draggable: true,
-        maximizable: true,
+        maximizable: false,
         iconCls: this.iconCls,
         style: this.style,
         modal: isModal,
-        items: [this]
+        items: [this],
       });
       this.title = '';
-      this.closable = false;
       this.header = false;
       this.setIconCls('');
       this.style = '';
-      // In case it has custom close buttons...
-      this.on('close', function() { this.hostWindow.close(); });
+      // Close the window if the panel closes itself in a custom way.
+      this.on('close', function() {
+        this.hostWindow.closingByPanel = true;
+        this.hostWindow.close();
+      });
+      // Close the panel when the window is closed through the close tool.
+      this.hostWindow.on('close', function() {
+        if (!this.hostWindow.closingByPanel) {
+          this.close();
+        }
+      }, this);
       this.hostWindow.show(getAnimationOrigin());
       if (!this.isVisible())
         this.show(getAnimationOrigin());

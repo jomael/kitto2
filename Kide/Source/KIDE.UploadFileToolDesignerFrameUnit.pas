@@ -47,7 +47,7 @@ implementation
 {$R *.dfm}
 
 uses
-  Kitto.Metadata.Views, Kitto.Ext.Controller;
+  Kitto.Metadata.Views, Kitto.Ext.Files;
 
 { TUploadFileToolDesignerFrame }
 
@@ -75,6 +75,7 @@ initialization
   TEditNodeFrameRegistry.Instance.RegisterClass(TUploadFileToolDesignerFrame.GetClassId, TUploadFileToolDesignerFrame);
 
 finalization
-  TEditNodeFrameRegistry.Instance.UnregisterClass(TUploadFileToolDesignerFrame.GetClassId);
+  if Assigned(TEditNodeFrameRegistry.Instance) then
+    TEditNodeFrameRegistry.Instance.UnregisterClass(TUploadFileToolDesignerFrame.GetClassId);
 
 end.

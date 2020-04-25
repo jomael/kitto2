@@ -47,7 +47,7 @@ implementation
 {$R *.dfm}
 
 uses
-  Kitto.Metadata.Views, Kitto.Ext.Controller;
+  Kitto.Metadata.Views;
 
 { TExportTextToolDesignerFrame }
 
@@ -92,6 +92,7 @@ initialization
   TEditNodeFrameRegistry.Instance.RegisterClass(TExportTextToolDesignerFrame.GetClassId, TExportTextToolDesignerFrame);
 
 finalization
-  TEditNodeFrameRegistry.Instance.UnregisterClass(TExportTextToolDesignerFrame.GetClassId);
+  if Assigned(TEditNodeFrameRegistry.Instance) then
+    TEditNodeFrameRegistry.Instance.UnregisterClass(TExportTextToolDesignerFrame.GetClassId);
 
 end.

@@ -91,6 +91,7 @@ uses
   , EF.Macros
   , Kitto.JS
   , Kitto.Types
+  , Kitto.Config.Defaults
   , Kitto.Web.Application
   , Kitto.Web.Request
   , Kitto.Web.Response
@@ -116,6 +117,7 @@ var
   LLoginHandler: TJSAjaxCall;
   LResetPasswordClickCode: string;
   LEditWidth: Integer;
+  LExtraHeight, LExtraWidth: Integer;
 begin
   inherited;
   LTitle := Config.FindNode('Title');
@@ -151,7 +153,7 @@ begin
   FLoginButton.Text := _('Login');
 
   LFormPanel.BodyPadding := '20px 0 0 0';
-  LEditWidth := Config.GetInteger('FormPanel/EditWidth', 150);
+  LEditWidth := Config.GetInteger('EditWidth', 200);
 
   FUserName := TExtFormTextField.CreateAndAddToArray(LFormPanel.Items);
   FUserName.Name := 'UserName';
@@ -183,6 +185,7 @@ begin
   if Assigned(FResetPassword) and FResetPassword.AsBoolean then
   begin
     FResetPasswordLink := TExtBoxComponent.CreateAndAddToArray(LFormPanel.Items);
+    FResetPasswordLink.Padding := Format('0 0 %0:dpx 0', [TKDefaults.GetSingleSpacing]);
     LResetPasswordClickCode := GetJSCode(
       procedure
       begin
@@ -192,7 +195,7 @@ begin
       '<div style="text-align:right;"><a href="#" onclick="%s">%s</a></div>',
       [TNetEncoding.HTML.Encode(LResetPasswordClickCode), TNetEncoding.HTML.Encode(_('Password forgotten?'))]);
     FResetPasswordLink.Width := LEditWidth + LFormPanel.LabelWidth;
-    Inc(LHeight, CONTROL_HEIGHT);
+    Inc(LHeight, CONTROL_HEIGHT + TKDefaults.GetSingleSpacing);
   end
   else
     FResetPasswordLink := nil;
@@ -273,8 +276,10 @@ begin
 
   &On('render', GenerateAnonymousFunction(GetLocalStorageRetrieveJSCode(FLocalStorageMode, LLocalStorageAutoLogin)));
 
-  Height := LHeight + Config.GetInteger('ExtraHeight');
-  Width := Config.GetInteger('Width', STANDARD_WIDTH) + Config.GetInteger('ExtraWidth');
+  LExtraHeight := Config.GetInteger('ExtraHeight');
+  Height := LHeight + LExtraHeight;
+  LExtraWidth := Config.GetInteger('ExtraWidth');
+  Width := Config.GetInteger('Width', STANDARD_WIDTH) + LExtraWidth;
 end;
 
 function TKExtLoginPanel.GetEnableButtonJS: string;

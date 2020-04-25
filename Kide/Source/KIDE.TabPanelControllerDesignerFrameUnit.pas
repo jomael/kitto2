@@ -46,7 +46,7 @@ implementation
 
 uses
   EF.Macros,
-  Kitto.Ext.Controller, Kitto.Ext.Base,
+  Kitto.Ext.Base,
   Kitto.Ext.TabPanel;
 
 { TDownloadFileToolDesignerFrame }
@@ -87,6 +87,7 @@ initialization
   TEditNodeFrameRegistry.Instance.RegisterClass(TTabPanelControllerDesignerFrame.GetClassId, TTabPanelControllerDesignerFrame);
 
 finalization
-  TEditNodeFrameRegistry.Instance.UnregisterClass(TTabPanelControllerDesignerFrame.GetClassId);
+  if Assigned(TEditNodeFrameRegistry.Instance) then
+    TEditNodeFrameRegistry.Instance.UnregisterClass(TTabPanelControllerDesignerFrame.GetClassId);
 
 end.

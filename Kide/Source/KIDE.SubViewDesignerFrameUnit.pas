@@ -76,9 +76,7 @@ implementation
 uses
   StrUtils, EF.Macros,
   KIDE.Project, KIDE.Utils, KIDE.Config,
-  Kitto.Ext.Controller, Kitto.Ext.Base,
-  //View classes for this designer
-  Kitto.Ext.ViewPort, Kitto.Ext.Window,
+  Kitto.Ext.Base,
   KIDE.MobileSettingsDesignerFrameUnit;
 
 { TDownloadFileToolDesignerFrame }
@@ -243,7 +241,7 @@ begin
   LControllerNode := ANode.FindNode('Controller');
   if Assigned(LControllerNode) then
   begin
-    LFrameClass := TEditNodeFrameFractory.Instance.GetEditNodeFrameClass(LControllerNode);
+    LFrameClass := TEditNodeFrameFactory.Instance.GetEditNodeFrameClass(LControllerNode);
     if Assigned(LFrameClass) then
       EmbedEditNodeFrame(ControllerTabSheet, LFrameClass, LControllerNode);
     MobileSettingsTabSheet.TabVisible := IsHomeView;
@@ -270,6 +268,7 @@ initialization
   TEditNodeFrameRegistry.Instance.RegisterClass(TSubViewDesignerFrame.GetClassId, TSubViewDesignerFrame);
 
 finalization
-  TEditNodeFrameRegistry.Instance.UnregisterClass(TSubViewDesignerFrame.GetClassId);
+  if Assigned(TEditNodeFrameRegistry.Instance) then
+    TEditNodeFrameRegistry.Instance.UnregisterClass(TSubViewDesignerFrame.GetClassId);
 
 end.
